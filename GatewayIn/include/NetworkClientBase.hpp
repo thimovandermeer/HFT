@@ -19,7 +19,9 @@ public:
     NetworkClientBase(NetworkClientBase&&) noexcept = default;
     NetworkClientBase& operator=(NetworkClientBase&&) noexcept = default;
 
-    bool connect(std::string_view host, std::string_view port);
+	void setConnectTimeout(std::chrono::milliseconds timeout);
+	[[nodiscard]] std::chrono::milliseconds getConnectTimeout() const;
+	bool connect(std::string_view host, std::string_view port);
     void disconnect();
     bool send(const std::string_view& message);
 
@@ -32,6 +34,7 @@ protected:
     boost::asio::ip::tcp::socket socket_;
     std::thread io_thread_;
     std::atomic<bool> running_{false};
+	std::chrono::milliseconds connect_timeout_{5000};
     
     static constexpr std::size_t max_buffer_size = 8192;
     std::array<char, max_buffer_size> receive_buffer_{};

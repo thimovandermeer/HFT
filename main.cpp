@@ -6,9 +6,9 @@ int main()
 {
 	std::cout << "Hello, World!" << std::endl;
 	auto pixClient = std::make_unique<gateway::PixNetworkClient>();
+	pixClient->setConnectTimeout(std::chrono::milliseconds(10000));
 	auto quotes = gateway::QuotesObtainer(std::move(pixClient));
-
-	if (quotes.connect("localhost", "12345")) {
+	if (quotes.connect("127.0.0.1", "1844")) {
 		std::cout << "Successfully connected to PIX server\n";
 
 		// Check for quotes periodically

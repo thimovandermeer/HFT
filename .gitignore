@@ -1,0 +1,49 @@
+# === General build artifacts ===
+build/
+bin/
+lib/
+obj/
+*.o
+*.a
+*.so
+*.dll
+*.dylib
+*.exe
+*.out
+*.log
+
+# === CMake ===
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# === Visual Studio Code ===
+.vscode/
+
+# === CLion / JetBrains ===
+.idea/
+cmake-build-*/
+
+# === Xcode ===
+*.xcworkspace
+*.xcuserstate
+*.xcuserdata
+*.xcodeproj
+
+# === MacOS ===
+.DS_Store
+
+# === Windows ===
+Thumbs.db
+Desktop.ini
+
+# === GDB / debugging ===
+*.dSYM/
+*.core
+*.gch
+
+# === Others ===
+*.swp
+*~

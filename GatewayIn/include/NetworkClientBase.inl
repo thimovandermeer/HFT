@@ -12,28 +12,47 @@ NetworkClientBase<Derived>::~NetworkClientBase() {
     disconnect();
 }
 
-template<typename Derived>
-bool NetworkClientBase<Derived>::connect(std::string_view host, std::string_view port) {
-    try {
-        boost::asio::ip::tcp::resolver resolver(io_service_);
-        auto endpoints = resolver.resolve(
-            std::string(host), 
-            std::string(port)
-        );
+	template<typename Derived>
+	bool NetworkClientBase<Derived>::connect(std::string_view host, std::string_view port) {
+		try {
+			boost::asio::ip::tcp::resolver resolver(io_service_);
+			auto endpoints = resolver.resolve(host, port);
 
-        boost::asio::connect(socket_, endpoints);
-        
-        running_ = true;
-        io_thread_ = std::thread([this]() { runIoService(); });
-        
-        startReceive();
-        return true;
-    }
-    catch (const boost::system::system_error& e) {
-        static_cast<Derived*>(this)->handleError(e.what());
-        return false;
-    }
-}
+			boost::asio::steady_timer timer(io_service_);
+			boost::system::error_code connect_ec = boost::asio::error::would_block;
+
+			boost::asio::async_connect(socket_, endpoints,
+									   [&connect_ec](const boost::system::error_code& ec, const auto&) {
+										   connect_ec = ec;
+									   });
+
+			timer.expires_after(connect_timeout_);
+			timer.async_wait([this](const boost::system::error_code&) {
+				socket_.close();
+			});
+
+			while (connect_ec == boost::asio::error::would_block) {
+				io_service_.run_one();
+			}
+
+			timer.cancel();
+
+			if (connect_ec) {
+				std::cerr << "Connection failed: " << connect_ec.message() << std::endl;
+				return false;
+			}
+
+			running_ = true;
+			io_thread_ = std::thread([this]() { runIoService(); });
+			startReceive();
+			return true;
+		}
+		catch (const std::exception& e) {
+			std::cerr << "Exception during connect: " << e.what() << std::endl;
+			return false;
+		}
+	}
+
 
 template<typename Derived>
 void NetworkClientBase<Derived>::disconnect() {
@@ -79,4 +98,15 @@ void NetworkClientBase<Derived>::disconnect() {
 		std::cout<< "run Io service called" << std::endl;
 		//TODO: not implemented
 	}
+
+	template<typename Derived>
+	void NetworkClientBase<Derived>::setConnectTimeout(std::chrono::milliseconds timeout) {
+		connect_timeout_ = timeout;
+	}
+
+	template<typename Derived>
+	std::chrono::milliseconds NetworkClientBase<Derived>::getConnectTimeout() const {
+		return connect_timeout_;
+	}
+
 } // namespace gateway
