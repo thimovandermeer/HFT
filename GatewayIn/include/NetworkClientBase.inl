@@ -18,86 +18,85 @@ NetworkClientBase<Derived>::~NetworkClientBase() {
 			boost::asio::ip::tcp::resolver resolver(io_service_);
 			auto endpoints = resolver.resolve(host, port);
 
-			boost::asio::steady_timer timer(io_service_);
-			boost::system::error_code connect_ec = boost::asio::error::would_block;
+			boost::system::error_code ec;
+			boost::asio::connect(socket_, endpoints, ec);
 
-			boost::asio::async_connect(socket_, endpoints,
-									   [&connect_ec](const boost::system::error_code& ec, const auto&) {
-										   connect_ec = ec;
-									   });
-
-			timer.expires_after(connect_timeout_);
-			timer.async_wait([this](const boost::system::error_code&) {
-				socket_.close();
-			});
-
-			while (connect_ec == boost::asio::error::would_block) {
-				io_service_.run_one();
-			}
-
-			timer.cancel();
-
-			if (connect_ec) {
-				std::cerr << "Connection failed: " << connect_ec.message() << std::endl;
+			if (ec) {
+				std::cerr << "Connection failed: " << ec.message() << std::endl;
 				return false;
 			}
 
+			socket_.non_blocking(true);
 			running_ = true;
-			io_thread_ = std::thread([this]() { runIoService(); });
-			startReceive();
+
+			receive_thread_ = std::thread([this]() {
+				static_cast<Derived*>(this)->startReceive();
+			});
+
 			return true;
-		}
-		catch (const std::exception& e) {
+		} catch (const std::exception& e) {
 			std::cerr << "Exception during connect: " << e.what() << std::endl;
 			return false;
 		}
 	}
 
-
-template<typename Derived>
-void NetworkClientBase<Derived>::disconnect() {
-	if(running_) {
+	template<typename Derived>
+	void NetworkClientBase<Derived>::disconnect() {
+		std::cout << "Disconnect called" << std::endl;
 		running_ = false;
-		if(socket_.is_open()) {
+
+		if (socket_.is_open()) {
 			boost::system::error_code ec;
 			socket_.close(ec);
 		}
-		if(io_thread_.joinable()) {
-			io_thread_.join();
+
+		if (receive_thread_.joinable()) {
+			receive_thread_.join();
 		}
 	}
-}
 
 	template<typename Derived>
 	bool NetworkClientBase<Derived>::send(const std::string_view& message) {
+		std::cout << "We are sending data "<< message << std::endl;
 		try {
-			socket_.async_send(message);
-			return true;
+			std::size_t bytes_sent = boost::asio::write(
+					socket_,
+					boost::asio::buffer(message.data(), message.size())
+			);
+
+			return bytes_sent == message.size();
 		} catch (const boost::system::system_error& e) {
-			if (auto derived = static_cast<Derived*>(this)) {
-				derived->handleError("Send failed: " + std::string(e.what()));
-			}
+			static_cast<Derived*>(this)->handleError("Send failed: " + std::string(e.what()));
 			return false;
 		}
 	}
 
 	template<typename Derived>
 	void NetworkClientBase<Derived>::startReceive() {
-		std::cout<< "Start Receive called" << std::endl;
-		//TODO: not implemented
+		boost::system::error_code ec;
+
+		while (running_) {
+			std::size_t n = 0;
+			try {
+				n = socket_.read_some(boost::asio::buffer(receive_buffer_), ec);
+			} catch (const std::exception& e) {
+				static_cast<Derived*>(this)->handleError(std::string("Exception in read_some: ") + e.what());
+				break;
+			}
+
+			if (ec == boost::asio::error::would_block || ec == boost::asio::error::try_again) {
+				continue;
+			}
+
+			if (ec) {
+				static_cast<Derived*>(this)->handleError("Socket read error: " + ec.message());
+				break;
+			}
+
+			static_cast<Derived*>(this)->handleReceive(receive_buffer_.data(), n);
+		}
 	}
 
-	template<typename Derived>
-	void NetworkClientBase<Derived>::handleReceive(const boost::system::error_code& error, std::size_t bytes) {
-		std::cout<< "Handle Receive called" << std::endl;
-		//TODO: not implemented
-	}
-
-	template<typename Derived>
-	void NetworkClientBase<Derived>::runIoService() {
-		std::cout<< "run Io service called" << std::endl;
-		//TODO: not implemented
-	}
 
 	template<typename Derived>
 	void NetworkClientBase<Derived>::setConnectTimeout(std::chrono::milliseconds timeout) {

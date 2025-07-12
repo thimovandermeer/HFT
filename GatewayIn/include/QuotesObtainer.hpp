@@ -9,6 +9,7 @@
 #include <format>
 #include <Quote.hpp>
 #include <NetworkClientBase.hpp>
+#include <boost/lockfree/spsc_queue.hpp>
 
 namespace gateway {
     class PixNetworkClient;
@@ -19,16 +20,16 @@ namespace gateway {
 
         bool connect(std::string_view host, std::string_view port);
         void disconnect();
-        [[nodiscard]] std::optional<Quote> getCurrentQuote() const;
         void setUpdateInterval(std::chrono::milliseconds interval);
+		std::optional<Quote> getBidCurrentQuote();
+		std::optional<Quote> getAskCurrentQuote();
 
-    private:
+	private:
         std::unique_ptr<PixNetworkClient> pixClient_;
-        void processPixMessage(std::string_view message);
-        [[nodiscard]] std::vector<Quote> parsePixFormat(std::string_view data) const;
+		void parseAndStoreQuote(std::string_view fixMessage);
 
-        mutable std::mutex quoteMutex_;
-        std::optional<Quote> lastQuote_;
-        std::chrono::milliseconds updateInterval_{1000};
+		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>> bidQuoteQueue_;
+		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>> askQuoteQueue_;
+		std::chrono::milliseconds updateInterval_{1000};
     };
 }

@@ -27,11 +27,12 @@ public:
 
 protected:
     void startReceive();
-    void handleReceive(const boost::system::error_code& error, std::size_t bytes);
+    void handleReceive(const char* data, std::size_t size);
     void runIoService();
 
     boost::asio::io_context io_service_;
     boost::asio::ip::tcp::socket socket_;
+	std::thread receive_thread_;
     std::thread io_thread_;
     std::atomic<bool> running_{false};
 	std::chrono::milliseconds connect_timeout_{5000};
