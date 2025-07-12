@@ -21,8 +21,15 @@ namespace gateway {
         bool connect(std::string_view host, std::string_view port);
         void disconnect();
         void setUpdateInterval(std::chrono::milliseconds interval);
-		std::optional<Quote> getBidCurrentQuote();
-		std::optional<Quote> getAskCurrentQuote();
+
+		size_t sizeAskQueue() const { return askQuoteQueue_.read_available(); }
+		size_t sizeBidQueue() const { return bidQuoteQueue_.read_available(); }
+
+		double avgAskQuoteIntervalMs() const { return avgInterval(askTimestamps_); }
+		double avgBidQuoteIntervalMs() const { return avgInterval(bidTimestamps_); }
+
+		std::optional<Quote> peekAskQuote() const;
+		std::optional<Quote> peekBidQuote() const;
 
 	private:
         std::unique_ptr<PixNetworkClient> pixClient_;
@@ -30,6 +37,14 @@ namespace gateway {
 
 		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>> bidQuoteQueue_;
 		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>> askQuoteQueue_;
+
+		std::deque<std::chrono::system_clock::time_point> askTimestamps_;
+		std::deque<std::chrono::system_clock::time_point> bidTimestamps_;
+
+		std::optional<Quote> peakAskQuote_;
+		std::optional<Quote> peakBidQuote_;
+
+		double avgInterval(const std::deque<std::chrono::system_clock::time_point> timestamps) const;
 		std::chrono::milliseconds updateInterval_{1000};
     };
 }

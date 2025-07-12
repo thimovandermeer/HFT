@@ -37,7 +37,6 @@ namespace gateway {
 		}
 
 		void handleReceive(const char* data, std::size_t size) {
-			std::cout << "Data received: " << data << std::endl;
 			sliding_buffer_.append(data, size);
 
 			while (true) {
@@ -93,7 +92,6 @@ namespace gateway {
 
 			std::string fix = buildFixMessage("V", fixBody.str());
 
-			std::cout << "Sending FIX: ";
 			for (char c : fix) std::cout << (c == '\x01' ? '|' : c);
 			std::cout << std::endl;
 

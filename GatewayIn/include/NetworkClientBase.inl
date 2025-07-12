@@ -57,7 +57,6 @@ NetworkClientBase<Derived>::~NetworkClientBase() {
 
 	template<typename Derived>
 	bool NetworkClientBase<Derived>::send(const std::string_view& message) {
-		std::cout << "We are sending data "<< message << std::endl;
 		try {
 			std::size_t bytes_sent = boost::asio::write(
 					socket_,
