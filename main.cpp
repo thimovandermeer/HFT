@@ -12,13 +12,34 @@ int main() {
 	using namespace std::chrono;
 	std::cout << "Starting QuotesObtainer...\n";
 
-	auto pixClient = std::make_unique<gateway::PixNetworkClient>();
-	pixClient->setConnectTimeout(milliseconds(10000));
+	std::vector<std::pair<std::string, std::string>> servers = {
+			{"127.0.0.1", "1844"},
+			{"127.0.0.1", "1845"},
+			{"127.0.0.1", "1846"},
+			{"127.0.0.1", "1847"},
+			{"127.0.0.1", "1848"},
+			{"127.0.0.1", "1849"},
+			{"127.0.0.1", "1850"},
+			{"127.0.0.1", "1851"},
 
-	gateway::QuotesObtainer quotes(std::move(pixClient), "127.0.0.1", "1844");
-	if (!quotes.connect()) {
-		std::cerr << "❌ Failed to connect to PIX server.\n";
-		return 1;
+
+
+	};
+
+	std::vector<std::pair<std::unique_ptr<gateway::QuotesObtainer>, std::string>> obtainers;
+
+	for (const auto& [host, port] : servers) {
+		auto client = std::make_unique<gateway::PixNetworkClient>();
+		client->setConnectTimeout(milliseconds(10000));
+
+		auto obtainer = std::make_unique<gateway::QuotesObtainer>(std::move(client), host, port);
+		if (!obtainer->connect()) {
+			std::cerr << "❌ Failed to connect to " << host << ":" << port << "\n";
+			continue;
+		}
+
+		std::string label = host + ":" + port;
+		obtainers.emplace_back(std::move(obtainer), std::move(label));
 	}
 
 	std::cout << "✅ Connected to PIX server.\n";
@@ -26,40 +47,30 @@ int main() {
 
 	while (true) {
 		std::cout << "\033[2J\033[H";  // Clear screen
-
 		std::cout << "=== Market Quote Monitor ===\n";
 
-		// Queue sizes
-		auto askSize = quotes.sizeAskQueue();
-		auto bidSize = quotes.sizeBidQueue();
+		for (const auto& [quotesPtr, label] : obtainers) {
+			const auto& quotes = *quotesPtr;
+			std::cout << "\n--- Feed: " << label << " ---\n";
 
-		// Most recent quotes
-		auto latestAsk = quotes.peekAskQuote();
-		auto latestBid = quotes.peekBidQuote();
+			auto askSize = quotes.sizeAskQueue();
+			auto bidSize = quotes.sizeBidQueue();
+			auto latestAsk = quotes.peekAskQuote();
+			auto latestBid = quotes.peekBidQuote();
 
-		std::cout << "\n--- Ask Queue ---\n";
-		std::cout << "Size: " << askSize << "\n";
-		if (latestAsk.has_value()) {
-			std::cout << "Latest: " << latestAsk->getPrice() << " @ "
-					  << duration_cast<milliseconds>(
-							  latestAsk->getTimestamp().time_since_epoch()).count()
-					  << " ms\n";
+			std::cout << "Ask Queue: " << askSize;
+			if (latestAsk) std::cout << ", Latest Ask: " << latestAsk->getPrice();
+			std::cout << "\n";
+
+			std::cout << "Bid Queue: " << bidSize;
+			if (latestBid) std::cout << ", Latest Bid: " << latestBid->getPrice();
+			std::cout << "\n";
+
+			std::cout << "Avg Ask Interval: " << quotes.avgAskQuoteIntervalMs() << " ms\n";
+			std::cout << "Avg Bid Interval: " << quotes.avgBidQuoteIntervalMs() << " ms\n";
 		}
 
-		std::cout << "\n--- Bid Queue ---\n";
-		std::cout << "Size: " << bidSize << "\n";
-		if (latestBid.has_value()) {
-			std::cout << "Latest: " << latestBid->getPrice() << " @ "
-					  << duration_cast<milliseconds>(
-							  latestBid->getTimestamp().time_since_epoch()).count()
-					  << " ms\n";
-		}
-
-		std::cout << "\n--- Metrics ---\n";
-		std::cout << "Avg Ask Quote Interval: " << quotes.avgAskQuoteIntervalMs() << " ms\n";
-		std::cout << "Avg Bid Quote Interval: " << quotes.avgBidQuoteIntervalMs() << " ms\n";
-
-		std::this_thread::sleep_for(milliseconds(500));
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 }
 
