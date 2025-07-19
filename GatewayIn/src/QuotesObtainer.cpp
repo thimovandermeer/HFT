@@ -13,8 +13,15 @@ using std::chrono::duration_cast;
 
 namespace gateway
 {
-	QuotesObtainer::QuotesObtainer(std::unique_ptr<PixNetworkClient> networkClient)
-			: pixClient_(std::move(networkClient))
+	QuotesObtainer::QuotesObtainer(
+			std::unique_ptr<PixNetworkClient> networkClient,
+			std::string host,
+			std::string port
+			)
+			:
+			pixClient_(std::move(networkClient)),
+			host_(std::move(host)),
+			port_(std::move(port))
 	{
 		pixClient_->setMessageHandler([this](std::string_view message) {
 			this->parseAndStoreQuote(message);
@@ -22,8 +29,9 @@ namespace gateway
 
 		pixClient_->setErrorHandler([this](std::string_view error) {
 			std::cerr << "PIX Error: " << error << std::endl;
+			disconnect();
 			std::cout << "Reconnecting...";
-			connect("172.0.0.01", "1844");
+			startReconnectLoop();
 		});
 	}
 
@@ -32,10 +40,11 @@ namespace gateway
 		disconnect();
 	}
 
-	bool QuotesObtainer::connect(std::string_view host, std::string_view port)
+	bool QuotesObtainer::connect()
 	{
-		if(pixClient_->connect(host, port)) {
-			pixClient_->loginAndSubscribe("EUR/USD");
+		std::cout << "Do we get here on a retry" << std::endl;
+		if(pixClient_->connect(host_, port_)) {
+//			pixClient_->loginAndSubscribe("EUR/USD");
 			return true;
 		} else {
 			return false;
@@ -72,6 +81,9 @@ namespace gateway
 				pos = soh + 1;
 			}
 
+			std::string_view msgType = fields["35"];
+			if (msgType != "X" && msgType != "W") return;
+
 			std::string_view symbol = fields["55"];
 			int numEntries = std::stoi(std::string(fields["268"]));
 			size_t current = fixMessage.find("268=");
@@ -89,8 +101,7 @@ namespace gateway
 				Quote quote(price, std::chrono::system_clock::now(), symbol, QuoteSide::Bid);
 
 				if (side == "0") {
-					std::cout << "Bid quote: " << quote.getPrice() << '\n';
-					if (!bidQuoteQueue_.push(quote)) std::cerr << "Bid queue full\n";
+					if (!bidQuoteQueue_.push(quote))
 
 					if (!peakBidQuote_ || quote.getPrice() > peakBidQuote_->getPrice()) {
 						peakBidQuote_ = quote;
@@ -102,7 +113,7 @@ namespace gateway
 					}
 
 				} else if (side == "1") {
-					if (!askQuoteQueue_.push(quote)) std::cerr << "Ask queue full\n";
+					if (!askQuoteQueue_.push(quote))
 
 					if (!peakAskQuote_ || quote.getPrice() < peakAskQuote_->getPrice()) {
 						peakAskQuote_ = quote;
@@ -121,6 +132,35 @@ namespace gateway
 			std::cerr << "Message: " << fixMessage << "\n";
 		}
 
+	}
+
+	void QuotesObtainer::startReconnectLoop()
+	{
+		if (reconnecting_.exchange(true)) return;
+		std::thread([this]() {
+			std::uniform_int_distribution<int> jitterDist(0, 50);
+			size_t attempts = 0;
+
+			while (attempts < maxReconnectAttempts_) {
+				std::cerr << "[Reconnect] Attempt " << (attempts + 1)
+						  << " for " << host_ << ":" << port_ << "\n";
+
+				if (connect()) {
+					std::cout << "[Reconnect] Success for " << host_ << ":" << port_ << "\n";
+					reconnecting_ = false;
+					return;
+				}
+
+				++attempts;
+				auto backoff = std::min(baseBackoff_ * (1 << attempts), maxBackoff_);
+				backoff += std::chrono::milliseconds(jitterDist(rng_));
+				std::this_thread::sleep_for(backoff);
+			}
+
+			std::cerr << "[Reconnect] Failed after " << attempts << " attempts for "
+					  << host_ << ":" << port_ << "\n";
+			reconnecting_ = false;
+		}).detach();
 	}
 
 	double QuotesObtainer::avgInterval(const std::deque<std::chrono::system_clock::time_point> timestamps) const {

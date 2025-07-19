@@ -15,8 +15,8 @@ int main() {
 	auto pixClient = std::make_unique<gateway::PixNetworkClient>();
 	pixClient->setConnectTimeout(milliseconds(10000));
 
-	gateway::QuotesObtainer quotes(std::move(pixClient));
-	if (!quotes.connect("127.0.0.1", "1844")) {
+	gateway::QuotesObtainer quotes(std::move(pixClient), "127.0.0.1", "1844");
+	if (!quotes.connect()) {
 		std::cerr << "❌ Failed to connect to PIX server.\n";
 		return 1;
 	}

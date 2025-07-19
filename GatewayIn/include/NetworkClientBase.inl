@@ -33,6 +33,7 @@ NetworkClientBase<Derived>::~NetworkClientBase() {
 				static_cast<Derived*>(this)->startReceive();
 			});
 
+
 			return true;
 		} catch (const std::exception& e) {
 			std::cerr << "Exception during connect: " << e.what() << std::endl;
@@ -51,8 +52,16 @@ NetworkClientBase<Derived>::~NetworkClientBase() {
 		}
 
 		if (receive_thread_.joinable()) {
-			receive_thread_.join();
+			if (std::this_thread::get_id() != receive_thread_.get_id()) {
+				std::cout << "Joining receive_thread_" << std::endl;
+				receive_thread_.join();
+			} else {
+				std::cout << "Can't join self — detaching receive_thread_" << std::endl;
+				receive_thread_.detach();
+			}
+			receive_thread_ = std::thread();
 		}
+		static_cast<Derived*>(this)->onDisconnect();
 	}
 
 	template<typename Derived>
@@ -73,6 +82,8 @@ NetworkClientBase<Derived>::~NetworkClientBase() {
 	template<typename Derived>
 	void NetworkClientBase<Derived>::startReceive() {
 		boost::system::error_code ec;
+
+		static_cast<Derived*>(this)->onConnectionReady();
 
 		while (running_) {
 			std::size_t n = 0;

@@ -47,6 +47,7 @@ namespace gateway {
 				std::string_view fix_msg(sliding_buffer_.data(), msg_end);
 
 				if (isLogonAck(fix_msg) && !loggedOn_.exchange(true)) {
+//					std::cout << "Logged in let's go" << std::endl;
 					loggedOn_.store(true);
 					sendMarketDataRequest("EUR/USD");
 				} else {
@@ -61,6 +62,7 @@ namespace gateway {
 		}
 
 		void sendFixLogon() {
+			std::cout << "sending logon" << std::endl;
 			std::ostringstream fields;
 			fields << "98=0" << '\x01';
 			fields << "108=30" << '\x01';
@@ -74,21 +76,18 @@ namespace gateway {
 
 			std::ostringstream fixBody;
 
-			// ✅ Top-level fields
-			fixBody << "262=req-" << reqCounter++ << '\x01';  // MDReqID
-			fixBody << "263=1" << '\x01';                    // SubscriptionRequestType
-			fixBody << "264=1" << '\x01';                    // MarketDepth
-			fixBody << "265=0" << '\x01';                    // UpdateType
+			fixBody << "262=req-" << reqCounter++ << '\x01';
+			fixBody << "263=1" << '\x01';
+			fixBody << "264=1" << '\x01';
+			fixBody << "265=0" << '\x01';
+			fixBody << "267=2" << '\x01';
+			fixBody << "269=0" << '\x01';
+			fixBody << "269=1" << '\x01';
 
-			// ✅ Entry types
-			fixBody << "267=2" << '\x01';                    // NoMDEntryTypes
-			fixBody << "269=0" << '\x01';                    // BID
-			fixBody << "269=1" << '\x01';                    // ASK
 
-			// ✅ Instruments
-			fixBody << "146=1" << '\x01';                    // NoRelatedSym
-			fixBody << "55=" << symbol << '\x01';            // Symbol
-			fixBody << "460=4" << '\x01';                    // Product = CURRENCY
+			fixBody << "146=1" << '\x01';
+			fixBody << "55=" << symbol << '\x01';
+			fixBody << "460=4" << '\x01';
 
 			std::string fix = buildFixMessage("V", fixBody.str());
 
@@ -96,6 +95,16 @@ namespace gateway {
 			std::cout << std::endl;
 
 			send(fix);
+		}
+
+		void onConnectionReady() {
+			loggedOn_.store(false);
+			loginAndSubscribe("EUR/USD");
+		}
+
+		void onDisconnect() {
+			outgoingSeqNum_ = 1;
+			loggedOn_.store(false);
 		}
 
 		std::string formattedUtcNow() {
@@ -131,18 +140,16 @@ namespace gateway {
 
 		std::string buildFixMessage(
 				const std::string& msgType,
-				const std::string& bodyFields)  // <-- already preformatted "tag=value<SOH>" fields
+				const std::string& bodyFields)
 		{
 			std::ostringstream body;
 
-			// Standard header fields
 			body << "35=" << msgType << '\x01';
 			body << "49=" << senderCompId_ << '\x01';
 			body << "56=" << targetCompId_ << '\x01';
 			body << "34=" << outgoingSeqNum_++ << '\x01';
 			body << "52=" << formattedUtcNow() << '\x01';
 
-			// Append caller-provided fields (already properly formatted)
 			body << bodyFields;
 
 			const std::string bodyStr = body.str();
@@ -165,7 +172,7 @@ namespace gateway {
 			if (errorHandler_) {
 				errorHandler_(error);
 			} else {
-				std::cerr << "PIX error: " << error << '\n';
+				std::cerr << "error handler not set, unable to handle error: " << error << '\n';
 			}
 		}
 
@@ -173,7 +180,7 @@ namespace gateway {
 			std::size_t pos = buffer.find("10=");
 			while (pos != std::string::npos) {
 				if (pos + 6 < buffer.size() && buffer[pos + 6] == '\x01') {
-					return pos + 7;  // length of "10=NNN\x01"
+					return pos + 7;
 				}
 				pos = buffer.find("10=", pos + 1);
 			}
