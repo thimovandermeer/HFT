@@ -45,6 +45,7 @@ int main() {
 	std::cout << "✅ Connected to PIX server.\n";
 	std::cout << std::fixed << std::setprecision(5);
 
+
 	while (true) {
 		std::cout << "\033[2J\033[H";  // Clear screen
 		std::cout << "=== Market Quote Monitor ===\n";
