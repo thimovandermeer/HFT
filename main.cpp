@@ -1,7 +1,7 @@
 #include <iostream>
 #include "GatewayIn/include/QuotesObtainer.hpp"
 #include "PixNetworkClient.hpp"
-
+#include "QuoteConsumer.hpp"
 #include <iostream>
 #include <iomanip>
 #include <thread>
@@ -36,39 +36,62 @@ int main() {
 		if (!obtainer->connect()) {
 			std::cerr << "❌ Failed to connect to " << host << ":" << port << "\n";
 			continue;
+		} else {
+			std::cout << "Successfully connected" << host << ":" << port << std::endl;
 		}
 
 		std::string label = host + ":" + port;
 		obtainers.emplace_back(std::move(obtainer), std::move(label));
 	}
 
-	std::cout << "✅ Connected to PIX server.\n";
+	std::vector<QuoteConsumer::QuoteSource> sources;
+	for (auto& [obtainerPtr, label] : obtainers) {
+		sources.push_back({ obtainerPtr.get(), label });
+	}
+
+	auto consumer = std::make_unique<QuoteConsumer>(std::move(sources));
 	std::cout << std::fixed << std::setprecision(5);
 
+	std::cout << "Do we get till run" << std::endl;
+	consumer->run();
 
 	while (true) {
 		std::cout << "\033[2J\033[H";  // Clear screen
-		std::cout << "=== Market Quote Monitor ===\n";
+		std::cout << "=== Aggregated Level 2 Order Book ===\n\n";
 
-		for (const auto& [quotesPtr, label] : obtainers) {
-			const auto& quotes = *quotesPtr;
-			std::cout << "\n--- Feed: " << label << " ---\n";
+		const auto& book = consumer->getOrderBook();
+		const auto& bids = book.getBids();
+		const auto& asks = book.getAsks();
 
-			auto askSize = quotes.sizeAskQueue();
-			auto bidSize = quotes.sizeBidQueue();
-			auto latestAsk = quotes.peekAskQuote();
-			auto latestBid = quotes.peekBidQuote();
+		std::cout << std::left << std::setw(15) << "Bid Size" << std::setw(15) << "Bid Price"
+				  << "||  "
+				  << std::setw(15) << "Ask Price" << std::setw(15) << "Ask Size" << "\n";
+		std::cout << std::string(64, '-') << "\n";
 
-			std::cout << "Ask Queue: " << askSize;
-			if (latestAsk) std::cout << ", Latest Ask: " << latestAsk->getPrice();
-			std::cout << "\n";
+		auto bidIt = bids.begin();
+		auto askIt = asks.begin();
+		for (int i = 0; i < 10; ++i) {
+			std::ostringstream line;
 
-			std::cout << "Bid Queue: " << bidSize;
-			if (latestBid) std::cout << ", Latest Bid: " << latestBid->getPrice();
-			std::cout << "\n";
+			if (bidIt != bids.end()) {
+				line << std::setw(15) << bidIt->second.size
+					 << std::setw(15) << bidIt->first;
+				++bidIt;
+			} else {
+				line << std::setw(15) << "-" << std::setw(15) << "-";
+			}
 
-			std::cout << "Avg Ask Interval: " << quotes.avgAskQuoteIntervalMs() << " ms\n";
-			std::cout << "Avg Bid Interval: " << quotes.avgBidQuoteIntervalMs() << " ms\n";
+			line << "||  ";
+
+			if (askIt != asks.end()) {
+				line << std::setw(15) << askIt->first
+					 << std::setw(15) << askIt->second.size;
+				++askIt;
+			} else {
+				line << std::setw(15) << "-" << std::setw(15) << "-";
+			}
+
+			std::cout << line.str() << "\n";
 		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));

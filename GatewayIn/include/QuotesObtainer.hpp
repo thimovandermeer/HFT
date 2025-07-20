@@ -36,6 +36,9 @@ namespace gateway {
 		std::optional<Quote> peekAskQuote() const;
 		std::optional<Quote> peekBidQuote() const;
 
+		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>>& getBidQueue();
+		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>>& getAskQueue();
+
 	private:
         std::unique_ptr<PixNetworkClient> pixClient_;
 		void parseAndStoreQuote(std::string_view fixMessage);
@@ -43,8 +46,8 @@ namespace gateway {
 		std::string host_;
 		std::string port_;
 
-		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<102004>> bidQuoteQueue_;
-		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<102004>> askQuoteQueue_;
+		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>> bidQuoteQueue_;
+		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>> askQuoteQueue_;
 
 		std::deque<std::chrono::system_clock::time_point> askTimestamps_;
 		std::deque<std::chrono::system_clock::time_point> bidTimestamps_;

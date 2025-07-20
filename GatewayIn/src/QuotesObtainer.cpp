@@ -42,9 +42,7 @@ namespace gateway
 
 	bool QuotesObtainer::connect()
 	{
-		std::cout << "Do we get here on a retry" << std::endl;
 		if(pixClient_->connect(host_, port_)) {
-//			pixClient_->loginAndSubscribe("EUR/USD");
 			return true;
 		} else {
 			return false;
@@ -92,16 +90,20 @@ namespace gateway
 				size_t entryStart = fixMessage.find("269=", current);
 				if (entryStart == std::string_view::npos) break;
 
-				std::string_view side = fixMessage.substr(entryStart + 4, 1); // 0=bid, 1=ask
+				std::string_view side = fixMessage.substr(entryStart + 4, 1);
 
 				size_t pxPos = fixMessage.find("270=", entryStart);
 				size_t pxEnd = fixMessage.find('\x01', pxPos);
 				double price = std::stod(std::string(fixMessage.substr(pxPos + 4, pxEnd - pxPos - 4)));
 
-				Quote quote(price, std::chrono::system_clock::now(), symbol, QuoteSide::Bid);
+				size_t szPos = fixMessage.find("271=", entryStart);
+				size_t szEnd = fixMessage.find('\x01', szPos);
+				double size = std::stod(std::string(fixMessage.substr(szPos + 4, szEnd - szPos - 4)));
+
+				Quote quote(price, size, std::chrono::system_clock::now(), symbol, side == "0" ? QuoteSide::Bid : QuoteSide::Ask);
 
 				if (side == "0") {
-					if (!bidQuoteQueue_.push(quote))
+					if (!bidQuoteQueue_.push(quote)) std::cerr << "Bid queue full for host " << host_ << ":" << port_ << "\n";
 
 					if (!peakBidQuote_ || quote.getPrice() > peakBidQuote_->getPrice()) {
 						peakBidQuote_ = quote;
@@ -109,11 +111,11 @@ namespace gateway
 
 					bidTimestamps_.push_back(quote.getTimestamp());
 					if (bidTimestamps_.size() > 100) {
-						bidTimestamps_.pop_front(); // limit memory usage
+						bidTimestamps_.pop_front();
 					}
 
 				} else if (side == "1") {
-					if (!askQuoteQueue_.push(quote))
+					if (!askQuoteQueue_.push(quote)) std::cerr << "Ask queue full for host " << host_ << ":" << port_ << "\n";
 
 					if (!peakAskQuote_ || quote.getPrice() < peakAskQuote_->getPrice()) {
 						peakAskQuote_ = quote;
@@ -121,7 +123,7 @@ namespace gateway
 
 					askTimestamps_.push_back(quote.getTimestamp());
 					if (askTimestamps_.size() > 100) {
-						askTimestamps_.pop_front(); // limit memory usage
+						askTimestamps_.pop_front();
 					}
 				}
 
@@ -178,5 +180,13 @@ namespace gateway
 
 	std::optional<Quote> QuotesObtainer::peekAskQuote() const {
 		return peakAskQuote_;
+	}
+
+	boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>>& QuotesObtainer::getBidQueue() {
+		return bidQuoteQueue_;
+	}
+
+	boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>>& QuotesObtainer::getAskQueue() {
+		return askQuoteQueue_;
 	}
 }
