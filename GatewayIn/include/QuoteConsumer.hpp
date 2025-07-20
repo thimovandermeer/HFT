@@ -7,6 +7,11 @@
 #include "QuotesObtainer.hpp"
 #include "OrderBook.hpp"
 
+struct ObtainerStats {
+	std::string_view serverId;
+	size_t askQueueSize;
+	size_t bidQueueSize;
+};
 
 class QuoteConsumer {
 public:
@@ -17,7 +22,6 @@ public:
 
 	explicit QuoteConsumer(std::vector<QuoteSource> sources)
 			: sources_{std::move(sources)} {}
-
 	void run() {
 		consumerThread_ = std::thread([this]() {
 			while (true) {
@@ -28,6 +32,14 @@ public:
 				std::this_thread::sleep_for(std::chrono::microseconds(100));
 			}
 		});
+	}
+
+	std::vector<ObtainerStats> fetchObtainerStats() {
+		std::vector<ObtainerStats> stats;
+		for (auto& src : sources_) {
+			stats.push_back({src.serverId, src.source->sizeAskQueue(), src.source->sizeBidQueue()});
+		};
+		return stats;
 	}
 
 	const OrderBook& getOrderBook() const { return orderBook_; }

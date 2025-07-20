@@ -2,10 +2,8 @@
 #include "GatewayIn/include/QuotesObtainer.hpp"
 #include "PixNetworkClient.hpp"
 #include "QuoteConsumer.hpp"
-#include <iostream>
 #include <iomanip>
 #include <thread>
-#include <chrono>
 #include <memory>
 
 int main() {
@@ -52,7 +50,6 @@ int main() {
 	auto consumer = std::make_unique<QuoteConsumer>(std::move(sources));
 	std::cout << std::fixed << std::setprecision(5);
 
-	std::cout << "Do we get till run" << std::endl;
 	consumer->run();
 
 	while (true) {
@@ -92,6 +89,20 @@ int main() {
 			}
 
 			std::cout << line.str() << "\n";
+		}
+
+		// === Obtainer Stats ===
+		const auto& obtainerStats = consumer->fetchObtainerStats();
+		std::cout << "\n=== Quote Queue Stats ===\n\n";
+		std::cout << std::left << std::setw(25) << "Server"
+				  << std::setw(15) << "Bid Queue"
+				  << std::setw(15) << "Ask Queue" << "\n";
+		std::cout << std::string(55, '-') << "\n";
+
+		for (const auto& stat : obtainerStats) {
+			std::cout << std::setw(25) << stat.serverId
+					  << std::setw(15) << stat.bidQueueSize
+					  << std::setw(15) << stat.askQueueSize << "\n";
 		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));

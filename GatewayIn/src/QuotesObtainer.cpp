@@ -174,13 +174,6 @@ namespace gateway
 		return total / (timestamps.size() - 1);
 	}
 
-	std::optional<Quote> QuotesObtainer::peekBidQuote() const {
-		return peakBidQuote_;
-	}
-
-	std::optional<Quote> QuotesObtainer::peekAskQuote() const {
-		return peakAskQuote_;
-	}
 
 	boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>>& QuotesObtainer::getBidQueue() {
 		return bidQuoteQueue_;

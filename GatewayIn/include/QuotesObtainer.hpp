@@ -33,9 +33,6 @@ namespace gateway {
 		double avgAskQuoteIntervalMs() const { return avgInterval(askTimestamps_); }
 		double avgBidQuoteIntervalMs() const { return avgInterval(bidTimestamps_); }
 
-		std::optional<Quote> peekAskQuote() const;
-		std::optional<Quote> peekBidQuote() const;
-
 		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>>& getBidQueue();
 		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>>& getAskQueue();
 
