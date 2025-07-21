@@ -2,6 +2,8 @@
 
 #include <string_view>
 #include <optional>
+#include <deque>
+#include <utility>
 #include <chrono>
 #include <vector>
 #include <memory>

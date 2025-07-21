@@ -1,9 +1,6 @@
-//
-// Created by Thimo Van der meer on 27/06/2025.
-//
-
 #include "../include/QuotesObtainer.hpp"
 #include "../include/PixNetworkClient.hpp"
+#include <deque>
 #include <chrono>
 
 using std::chrono::system_clock;
