@@ -5,7 +5,8 @@
 #ifndef HFT_FIXBOOKPARSER_HPP
 #define HFT_FIXBOOKPARSER_HPP
 #include <iostream>
-#include <Quote.hpp>
+#include "../../GatewayIn/include/Quote.hpp"
+
 
 namespace fix {
 
@@ -48,7 +49,6 @@ namespace fix {
 				size_t szEnd = fixMessage.find('\x01', szPos);
 				double size = std::stod(std::string(fixMessage.substr(szPos + 4, szEnd - szPos - 4)));
 
-				//TODO: Take the quote thus agnostic portion out
 				return (gateway::Quote(price, size, std::chrono::system_clock::now(), symbol, side == "0" ? gateway::QuoteSide::Bid : gateway::QuoteSide::Ask));
 
 
@@ -58,7 +58,7 @@ namespace fix {
 			std::cerr << "Exception thrown while parsing FIX message: " << e.what() << "\n";
 			std::cerr << "Message: " << fixMessage << "\n";
 		}
-
+		return std::nullopt;
 	}
 }
 #endif //HFT_FIXBOOKPARSER_HPP
