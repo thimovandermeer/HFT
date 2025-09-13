@@ -1,11 +1,10 @@
-// BitvavoBookParser.hpp
 #pragma once
 #include <string_view>
 #include <vector>
 #include <string>
 #include <cstdlib>
 #include <chrono>
-#include "Quote.hpp"
+#include "../../GatewayIn/include/Quote.hpp"
 
 namespace bitvavo {
 
@@ -28,17 +27,29 @@ namespace bitvavo {
 		if (p == std::string_view::npos) return false;
 		p += pat.size();
 
-		// price "..."
 		auto q = frame.find('"', p);
-		if (q == std::string_view::npos) return false;
-		px = std::strtod(std::string(frame.substr(p, q - p)).c_str(), nullptr);
+		if (q == std::string_view::npos || q == p) return false; // empty price invalid
 
-		// qty after ,"  "..."
-		auto q2a = frame.find('"', q + 3);
+		std::string price_str(frame.substr(p, q - p));
+		char* endp = nullptr;
+		const char* cprice = price_str.c_str();
+		px = std::strtod(cprice, &endp);
+		if (endp != cprice + price_str.size()) {
+			return false;
+		}
+
+		auto q2a = frame.find('"', q + 2);
 		if (q2a == std::string_view::npos) return false;
 		auto q2b = frame.find('"', q2a + 1);
-		if (q2b == std::string_view::npos) return false;
-		qty = std::strtod(std::string(frame.substr(q2a + 1, q2b - q2a - 1)).c_str(), nullptr);
+		if (q2b == std::string_view::npos || q2b == q2a + 1) return false; // empty qty invalid
+
+		std::string qty_str(frame.substr(q2a + 1, q2b - q2a - 1));
+		endp = nullptr;
+		const char* cqty = qty_str.c_str();
+		qty = std::strtod(cqty, &endp);
+		if (endp != cqty + qty_str.size()) {
+			return false;
+		}
 
 		return true;
 	}
@@ -51,17 +62,14 @@ namespace bitvavo {
 				return std::nullopt;
 			}
 
-
 			const auto now = std::chrono::system_clock::now();
 
 			double px = 0.0, qty = 0.0;
 
 			if (parseFirstLevel(frame, "bids", px, qty)) {
-				// TODO: Move Quote construction (agnostic piece) out if you want zero coupling here.
 				return gateway::Quote(px, qty, now, market, gateway::QuoteSide::Bid);
 			}
 			if (parseFirstLevel(frame, "asks", px, qty)) {
-				// TODO: Move Quote construction (agnostic piece) out if you want zero coupling here.
 				return gateway::Quote(px, qty, now, market, gateway::QuoteSide::Ask);
 			}
 
