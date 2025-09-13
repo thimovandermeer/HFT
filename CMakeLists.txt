@@ -16,6 +16,9 @@ add_executable(HFT
         GatewayIn/src/QuotesObtainer.cpp
 )
 
+find_package(OpenSSL REQUIRED)
+
+
 # Add include directories
 target_include_directories(HFT PRIVATE
         ${Boost_INCLUDE_DIRS}
@@ -28,6 +31,8 @@ target_link_libraries(HFT PRIVATE
         Boost::system
         Boost::thread
         Boost::filesystem
+        OpenSSL::SSL
+        OpenSSL::Crypto
 )
 
 if (HFT_ENABLE_TESTS)

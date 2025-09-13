@@ -11,13 +11,14 @@ namespace gateway {
 template<typename Derived>
 class NetworkClientBase {
 public:
-    NetworkClientBase();
-    ~NetworkClientBase();
+	NetworkClientBase();
+	~NetworkClientBase();
 
-    NetworkClientBase(const NetworkClientBase&) = default;
-    NetworkClientBase& operator=(const NetworkClientBase&) = default;
-    NetworkClientBase(NetworkClientBase&&) noexcept = default;
-    NetworkClientBase& operator=(NetworkClientBase&&) noexcept = default;
+	NetworkClientBase(const NetworkClientBase&) = delete;
+	NetworkClientBase& operator=(const NetworkClientBase&) = delete;
+
+	NetworkClientBase(NetworkClientBase&& other) noexcept;
+	NetworkClientBase& operator=(NetworkClientBase&&) = delete;
 
 	void setConnectTimeout(std::chrono::milliseconds timeout);
 	[[nodiscard]] std::chrono::milliseconds getConnectTimeout() const;

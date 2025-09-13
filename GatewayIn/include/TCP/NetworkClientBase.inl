@@ -4,13 +4,44 @@
 
 namespace gateway {
 
-template<typename Derived>
-NetworkClientBase<Derived>::NetworkClientBase() : socket_(io_service_) {}
+	template<typename Derived>
+	NetworkClientBase<Derived>::NetworkClientBase() : socket_(io_service_) {}
 
-template<typename Derived>
-NetworkClientBase<Derived>::~NetworkClientBase() {
-    disconnect();
-}
+	template<typename Derived>
+	NetworkClientBase<Derived>::~NetworkClientBase() {
+		disconnect();
+	}
+
+	template<typename Derived>
+	NetworkClientBase<Derived>::NetworkClientBase(NetworkClientBase&& other) noexcept
+			: io_service_(),
+			  socket_(io_service_),
+			  receive_thread_(),
+			  io_thread_(),
+			  running_(false),
+			  connect_timeout_(other.connect_timeout_),
+			  receive_buffer_(other.receive_buffer_)
+	{
+		bool was_running = other.running_.exchange(false);
+
+		try {
+			if (was_running && other.socket_.is_open()) {
+				boost::system::error_code ec;
+				other.socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+				other.socket_.close(ec);
+			}
+		} catch (...) {}
+
+		if (other.receive_thread_.joinable()) {
+			try { other.receive_thread_.join(); } catch (...) {}
+		}
+		if (other.io_thread_.joinable()) {
+			try { other.io_thread_.join(); } catch (...) {}
+		}
+
+		other.receive_thread_ = std::thread();
+		other.io_thread_      = std::thread();
+	}
 
 	template<typename Derived>
 	bool NetworkClientBase<Derived>::connect(std::string_view host, std::string_view port) {

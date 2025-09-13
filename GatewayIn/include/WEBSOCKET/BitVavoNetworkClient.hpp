@@ -15,9 +15,14 @@ namespace gateway
 		BitvavoWebSocketClient() = default;
 		BitvavoWebSocketClient(const BitvavoWebSocketClient&) = delete;
 		BitvavoWebSocketClient& operator=(const BitvavoWebSocketClient&) = delete;
-		BitvavoWebSocketClient(BitvavoWebSocketClient&&) noexcept = default;
-		BitvavoWebSocketClient& operator=(BitvavoWebSocketClient&&) noexcept = default;
+		BitvavoWebSocketClient(BitvavoWebSocketClient&& other) noexcept
+				: WebSocketClientBase<BitvavoWebSocketClient>(std::move(other)) // base move-ctor
+				, markets_(std::move(other.markets_))
+				, messageHandler_(std::move(other.messageHandler_))
+				, errorHandler_(std::move(other.errorHandler_))
+		{}
 
+		BitvavoWebSocketClient& operator=(BitvavoWebSocketClient&&) noexcept = delete;
 		void setMessageHandler(MessageHandler handler) {
 			messageHandler_ = handler;
 		}
@@ -36,11 +41,12 @@ namespace gateway
 		}
 
 		// ---- CRTP hooks ----
-		void connect()
+		bool connect(std::string_view host, std::string_view port)
 		{
 			// Bitvavo needs target "/v2/" — pass that to connect().
 			// Optionally send pings later; Beast auto-handles pongs.
 			std::cout << "[Bitvavo] WS opened\n";
+			return true;
 		}
 
 		void onMessage(std::string_view frame)

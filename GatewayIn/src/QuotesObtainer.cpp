@@ -24,12 +24,14 @@ namespace gateway
 	QuotesObtainer::QuotesObtainer(
 			AnyFeed feed,
 			std::string host,
-			std::string port
+			std::string port,
+			std::string market
 			)
 			:
 			feed_(std::move(feed)),
 			host_(std::move(host)),
-			port_(std::move(port))
+			port_(std::move(port)),
+			market_(std::move(market))
 	{
 		std::visit(Overloaded{
 				[this](PixNetworkClient& c) {
@@ -79,22 +81,29 @@ namespace gateway
 		return ok;
 	}
 
-	void QuotesObtainer::disconnect()
-	{
-		if (feed_) {
-			feed_->disconnect();
-		}
+	void QuotesObtainer::disconnect() {
+		if (feed_.valueless_by_exception()) return;
+		std::visit([](auto& c) { c.disconnect(); }, feed_);
 	}
 
 	void QuotesObtainer::parseFix(std::string_view fixMessage)
 	{
-		storeQuote(fix::parseAndStoreQuote(fixMessage));
-
+		auto quote = fix::parseAndStoreQuote(fixMessage);
+		if(quote.has_value()) {
+			storeQuote(quote.value());
+		} else {
+			std::cerr << "No quote created from message" << std::endl;
+		}
 	}
 
 	void QuotesObtainer::parseBitvavo(std::string_view bitVavoMessage)
 	{
-		storeQuote(bitvavo::parseAndStoreQuote(bitVavoMessage, market_));
+		auto result = bitvavo::parseAndStoreQuote(bitVavoMessage, market_);
+		if(result.has_value()) {
+			storeQuote(result.value());
+		} else {
+			std::cerr << "Unable to obtain quote from bitvavomessage";
+		}
 	}
 
 	void QuotesObtainer::storeQuote(const Quote& quote) {

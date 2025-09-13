@@ -17,8 +17,22 @@ namespace gateway {
 		PixNetworkClient() = default;
 		PixNetworkClient(const PixNetworkClient&) = delete;
 		PixNetworkClient& operator=(const PixNetworkClient&) = delete;
-		PixNetworkClient(PixNetworkClient&&) noexcept = default;
-		PixNetworkClient& operator=(PixNetworkClient&&) noexcept = default;
+		PixNetworkClient(PixNetworkClient&& other) noexcept
+				: NetworkClientBase<PixNetworkClient>(std::move(other))
+				, messageHandler_(std::move(other.messageHandler_))
+				, errorHandler_(std::move(other.errorHandler_))
+				, sliding_buffer_(std::move(other.sliding_buffer_))
+				, outgoingSeqNum_(other.outgoingSeqNum_)
+				, loggedOn_(other.loggedOn_.load())
+				, senderCompId_(std::move(other.senderCompId_))
+				, targetCompId_(std::move(other.targetCompId_))
+		{
+			other.loggedOn_.store(false);
+			other.outgoingSeqNum_ = 1;
+		}
+
+		PixNetworkClient& operator=(PixNetworkClient&&) noexcept = delete;
+
 		void setMessageHandler(MessageHandler handler) {
 			messageHandler_ = std::move(handler);
 		}

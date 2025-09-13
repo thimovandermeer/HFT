@@ -21,18 +21,52 @@ public:
 		ssl_ctx_.set_verify_mode(boost::asio::ssl::verify_peer);
 	}
 
-	~WebSocketClientBase() { disconnect(); }
+	~WebSocketClientBase() {
+		disconnect();
+	}
 
 	WebSocketClientBase(const WebSocketClientBase&) = delete;
 	WebSocketClientBase& operator=(const WebSocketClientBase&) = delete;
+
+	WebSocketClientBase(WebSocketClientBase&& other) noexcept
+			: ioc_(), // vers io_context
+			  ssl_ctx_(boost::asio::ssl::context::tls_client),
+			  ws_(ioc_, ssl_ctx_),
+			  running_(false),
+			  connect_timeout_(other.connect_timeout_),
+			  host_(std::move(other.host_)),
+			  target_(std::move(other.target_))
+	{
+		bool was_running = other.running_.exchange(false);
+
+		if (was_running) {
+			try { other.ws_.close(boost::beast::websocket::close_code::normal); }
+			catch (...) {}
+		}
+		if (other.receive_thread_.joinable()) {
+			try { other.receive_thread_.join(); } catch (...) {}
+		}
+
+		// Nieuw ssl-ctx config voor dit object
+		try {
+			ssl_ctx_.set_default_verify_paths();
+			ssl_ctx_.set_verify_mode(boost::asio::ssl::verify_peer);
+		} catch (...) {
+			// geen throw in noexcept; laat leeg
+		}
+
+		// Het nieuwe object is "schoon": geen actieve connectie, geen thread
+		// running_ blijft false; connect() moet opnieuw worden aangeroepen
+	}
+	WebSocketClientBase& operator=(WebSocketClientBase&&) = delete;
 
 	void setConnectTimeout(std::chrono::milliseconds t) { connect_timeout_ = t; }
 	std::chrono::milliseconds getConnectTimeout() const { return connect_timeout_; }
 
 	// For Bitvavo target must be "/v2/"
-	bool connect(std::string_view host, std::string_view port, std::string_view target) {
+	bool connect(std::string_view host, std::string_view port) {
 		host_ = std::string(host);
-		target_ = std::string(target);
+		target_ = "/v2/";
 
 		try {
 			boost::asio::ip::tcp::resolver resolver(ioc_);

@@ -30,8 +30,9 @@ namespace gateway {
     public:
         explicit QuotesObtainer(
 				AnyFeed feed,
-				std::string host_,
-				std::string _port
+				std::string _host,
+				std::string _port,
+				std::string _market
 				);
         ~QuotesObtainer();
 
@@ -50,12 +51,14 @@ namespace gateway {
 
 	private:
 		AnyFeed feed_;
+		std::string host_;
+		std::string port_;
+		std::string market_;
+
 		void parseFix(std::string_view fixMessage);
 		void parseBitvavo(std::string_view bitVavoMessage);
 
 		void storeQuote(const Quote& quote);
-		std::string host_;
-		std::string port_;
 
 		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>> bidQuoteQueue_;
 		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>> askQuoteQueue_;

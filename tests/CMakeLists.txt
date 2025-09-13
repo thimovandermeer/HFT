@@ -3,6 +3,7 @@ add_executable(test_parser
         parser/test_bitvavo_parser.cpp
         parser/test_fix_parser.cpp
 )
+
 target_link_libraries(test_parser PRIVATE
         parser
         gateway

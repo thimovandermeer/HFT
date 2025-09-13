@@ -25,7 +25,8 @@ int main() {
 		if (use_bitvavo) feed.emplace<gateway::BitvavoWebSocketClient>();
 		else             feed.emplace<gateway::PixNetworkClient>();
 
-		auto obtainer = std::make_unique<gateway::QuotesObtainer>(feed, host, port);
+		//TODO: fix the last argument later
+		auto obtainer = std::make_unique<gateway::QuotesObtainer>(std::move(feed), host, port, "BTC");
 		if (!obtainer->connect()) {
 			std::cerr << "Failed to connect to " << host << ":" << port << "\n";
 			continue;
