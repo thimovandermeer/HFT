@@ -10,16 +10,26 @@
 #include <optional>
 #include <format>
 #include <Quote.hpp>
-#include <NetworkClientBase.hpp>
+#include <iostream>
+#include <variant>
+#include <thread>
+#include <atomic>
+#include <chrono>
+#include <algorithm>
+#include <functional>
+#include <thread>
+#include <chrono>
 #include <random>
 #include <boost/lockfree/spsc_queue.hpp>
+#include "WEBSOCKET/BitVavoNetworkClient.hpp"
+#include "TCP/PixNetworkClient.hpp"
 
 namespace gateway {
-    class PixNetworkClient;
+	using AnyFeed = std::variant<PixNetworkClient, BitvavoWebSocketClient>;
     class QuotesObtainer {
     public:
         explicit QuotesObtainer(
-				std::unique_ptr<PixNetworkClient> networkClient,
+				AnyFeed feed,
 				std::string host_,
 				std::string _port
 				);
@@ -39,9 +49,11 @@ namespace gateway {
 		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>>& getAskQueue();
 
 	private:
-        std::unique_ptr<PixNetworkClient> pixClient_;
-		void parseAndStoreQuote(std::string_view fixMessage);
+		AnyFeed feed_;
+		void parseFix(std::string_view fixMessage);
+		void parseBitvavo(std::string_view bitVavoMessage);
 
+		void storeQuote(const Quote& quote);
 		std::string host_;
 		std::string port_;
 

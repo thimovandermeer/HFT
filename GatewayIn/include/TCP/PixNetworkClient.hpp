@@ -15,7 +15,10 @@ namespace gateway {
 		using ErrorHandler = std::function<void(std::string_view)>;
 
 		PixNetworkClient() = default;
-
+		PixNetworkClient(const PixNetworkClient&) = delete;
+		PixNetworkClient& operator=(const PixNetworkClient&) = delete;
+		PixNetworkClient(PixNetworkClient&&) noexcept = default;
+		PixNetworkClient& operator=(PixNetworkClient&&) noexcept = default;
 		void setMessageHandler(MessageHandler handler) {
 			messageHandler_ = std::move(handler);
 		}

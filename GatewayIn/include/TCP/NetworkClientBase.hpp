@@ -14,8 +14,8 @@ public:
     NetworkClientBase();
     ~NetworkClientBase();
 
-    NetworkClientBase(const NetworkClientBase&) = delete;
-    NetworkClientBase& operator=(const NetworkClientBase&) = delete;
+    NetworkClientBase(const NetworkClientBase&) = default;
+    NetworkClientBase& operator=(const NetworkClientBase&) = default;
     NetworkClientBase(NetworkClientBase&&) noexcept = default;
     NetworkClientBase& operator=(NetworkClientBase&&) noexcept = default;
 

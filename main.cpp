@@ -1,38 +1,33 @@
 #include <iostream>
 #include "GatewayIn/include/QuotesObtainer.hpp"
-#include "PixNetworkClient.hpp"
+#include "TCP/PixNetworkClient.hpp"
 #include "QuoteConsumer.hpp"
 #include <iomanip>
 #include <thread>
 #include <memory>
+#include "WEBSOCKET/BitVavoNetworkClient.hpp"
 
 int main() {
 	using namespace std::chrono;
 	std::cout << "Starting QuotesObtainer...\n";
 
 	std::vector<std::pair<std::string, std::string>> servers = {
-			{"127.0.0.1", "1844"},
-			{"127.0.0.1", "1845"},
-			{"127.0.0.1", "1846"},
-			{"127.0.0.1", "1847"},
-			{"127.0.0.1", "1848"},
-			{"127.0.0.1", "1849"},
-			{"127.0.0.1", "1850"},
-			{"127.0.0.1", "1851"},
-
-
-
+		{"ws.bitvavo.com", "443"}
 	};
 
+
+	//TODO: this should be moved out of the main function and abstracted away
 	std::vector<std::pair<std::unique_ptr<gateway::QuotesObtainer>, std::string>> obtainers;
 
 	for (const auto& [host, port] : servers) {
-		auto client = std::make_unique<gateway::PixNetworkClient>();
-		client->setConnectTimeout(milliseconds(10000));
+		gateway::AnyFeed feed;
+		bool use_bitvavo = true;
+		if (use_bitvavo) feed.emplace<gateway::BitvavoWebSocketClient>();
+		else             feed.emplace<gateway::PixNetworkClient>();
 
-		auto obtainer = std::make_unique<gateway::QuotesObtainer>(std::move(client), host, port);
+		auto obtainer = std::make_unique<gateway::QuotesObtainer>(feed, host, port);
 		if (!obtainer->connect()) {
-			std::cerr << "❌ Failed to connect to " << host << ":" << port << "\n";
+			std::cerr << "Failed to connect to " << host << ":" << port << "\n";
 			continue;
 		} else {
 			std::cout << "Successfully connected" << host << ":" << port << std::endl;
@@ -52,6 +47,7 @@ int main() {
 
 	consumer->run();
 
+	// make ui class and add this there
 	while (true) {
 		std::cout << "\033[2J\033[H";  // Clear screen
 		std::cout << "=== Aggregated Level 2 Order Book ===\n\n";

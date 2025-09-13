@@ -8,6 +8,7 @@ cmake_policy(SET CMP0167 NEW)
 
 # Find Boost components
 find_package(Boost REQUIRED COMPONENTS system thread filesystem)
+option(HFT_ENABLE_TESTS "Build unit tests" OFF)
 
 # Add the executable with the actual source files
 add_executable(HFT
@@ -28,3 +29,41 @@ target_link_libraries(HFT PRIVATE
         Boost::thread
         Boost::filesystem
 )
+
+if (HFT_ENABLE_TESTS)
+    include(FetchContent)
+
+    FetchContent_Declare(
+            googletest
+            URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+
+    enable_testing()
+
+    add_executable(test_parser
+            tests/parser/test_bitvavo_parser.cpp
+            tests/parser/test_fix_parser.cpp
+    )
+    target_link_libraries(test_parser PRIVATE GTest::gtest_main)
+    target_include_directories(test_parser PRIVATE ${CMAKE_SOURCE_DIR}/parser/include ${CMAKE_SOURCE_DIR}/gateway/include)
+
+    add_executable(test_gateway
+            tests/gateway/test_quotes_obtainer.cpp
+    )
+    target_link_libraries(test_gateway PRIVATE GTest::gtest_main)
+    target_include_directories(test_gateway PRIVATE ${CMAKE_SOURCE_DIR}/gateway/include ${CMAKE_SOURCE_DIR}/parser/include)
+
+    include(GoogleTest)
+    gtest_discover_tests(test_parser)
+    gtest_discover_tests(test_gateway)
+
+    add_custom_target(run-tests
+            COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+            DEPENDS test_parser test_gateway
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            COMMENT "Running all unit tests"
+    )
+endif()

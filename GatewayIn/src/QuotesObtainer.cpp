@@ -1,5 +1,11 @@
 #include "../include/QuotesObtainer.hpp"
-#include "../include/PixNetworkClient.hpp"
+#include "../include/TCP/PixNetworkClient.hpp"
+#include "../../Parser/include/BitvavoBookParser.hpp"
+#include "../../Parser/include/FixBookParser.hpp"
+#include <iostream>
+#include <variant>
+#include <thread>
+#include <atomic>
 #include <deque>
 #include <chrono>
 
@@ -8,28 +14,47 @@ using std::chrono::time_point;
 using std::chrono::milliseconds;
 using std::chrono::duration_cast;
 
+template<class... Ts>
+struct Overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts>
+Overloaded(Ts...) -> Overloaded<Ts...>;
+
 namespace gateway
 {
 	QuotesObtainer::QuotesObtainer(
-			std::unique_ptr<PixNetworkClient> networkClient,
+			AnyFeed feed,
 			std::string host,
 			std::string port
 			)
 			:
-			pixClient_(std::move(networkClient)),
+			feed_(std::move(feed)),
 			host_(std::move(host)),
 			port_(std::move(port))
 	{
-		pixClient_->setMessageHandler([this](std::string_view message) {
-			this->parseAndStoreQuote(message);
-		});
-
-		pixClient_->setErrorHandler([this](std::string_view error) {
-			std::cerr << "PIX Error: " << error << std::endl;
-			disconnect();
-			std::cout << "Reconnecting...";
-			startReconnectLoop();
-		});
+		std::visit(Overloaded{
+				[this](PixNetworkClient& c) {
+					c.setMessageHandler([this](std::string_view msg){
+						this->parseFix(msg);
+					});
+					c.setErrorHandler([this](std::string_view err){
+						std::cerr << "PIX Error: " << err << std::endl;
+						disconnect();
+						std::cout << "Reconnecting...";
+						startReconnectLoop();
+					});
+				},
+				[this](BitvavoWebSocketClient& c) {
+					c.setMessageHandler([this](std::string_view frame){
+						this->parseBitvavo(frame);
+					});
+					c.setErrorHandler([this](std::string_view err){
+						std::cerr << "Bitvavo Error: " << err << std::endl;
+						disconnect();
+						std::cout << "Reconnecting...";
+						startReconnectLoop();
+					});
+				}
+		}, feed_);
 	}
 
 	QuotesObtainer::~QuotesObtainer()
@@ -39,98 +64,69 @@ namespace gateway
 
 	bool QuotesObtainer::connect()
 	{
-		if(pixClient_->connect(host_, port_)) {
-			return true;
-		} else {
-			return false;
-		}
+		bool ok = std::visit(Overloaded{
+				[this](PixNetworkClient& c) {
+					return c.connect(host_, port_);
+				},
+				[this](BitvavoWebSocketClient& c) {
+					if (!c.connect(host_, port_)) return false;
+					std::string sub = std::string(R"({"action":"subscribe","channels":[{"name":"book","markets":[")")
+									  + market_ + R"("]}]})";
+					c.send(sub);
+					return true;
+				}
+		}, feed_);
+		return ok;
 	}
 
 	void QuotesObtainer::disconnect()
 	{
-		if (pixClient_) {
-			pixClient_->disconnect();
+		if (feed_) {
+			feed_->disconnect();
+		}
+	}
+
+	void QuotesObtainer::parseFix(std::string_view fixMessage)
+	{
+		storeQuote(fix::parseAndStoreQuote(fixMessage));
+
+	}
+
+	void QuotesObtainer::parseBitvavo(std::string_view bitVavoMessage)
+	{
+		storeQuote(bitvavo::parseAndStoreQuote(bitVavoMessage, market_));
+	}
+
+	void QuotesObtainer::storeQuote(const Quote& quote) {
+		if (quote.getSide() == QuoteSide::Bid) {
+			if (!bidQuoteQueue_.push(quote)) std::cerr << "Bid queue full for host " << host_ << ":" << port_ << "\n";
+
+			if (!peakBidQuote_ || quote.getPrice() > peakBidQuote_->getPrice()) {
+				peakBidQuote_ = quote;
+			}
+
+			bidTimestamps_.push_back(quote.getTimestamp());
+			if (bidTimestamps_.size() > 100) {
+				bidTimestamps_.pop_front();
+			}
+
+		} else if (quote.getSide() == QuoteSide::Ask) {
+			if (!askQuoteQueue_.push(quote)) std::cerr << "Ask queue full for host " << host_ << ":" << port_ << "\n";
+
+			if (!peakAskQuote_ || quote.getPrice() < peakAskQuote_->getPrice()) {
+				peakAskQuote_ = quote;
+			}
+
+			askTimestamps_.push_back(quote.getTimestamp());
+			if (askTimestamps_.size() > 100) {
+				askTimestamps_.pop_front();
+			}
 		}
 	}
 
 	void QuotesObtainer::setUpdateInterval(std::chrono::milliseconds interval)
 	{
 		updateInterval_ = interval;
-	}
-
-	inline void QuotesObtainer::parseAndStoreQuote(std::string_view fixMessage) {
-		try {
-			std::unordered_map<std::string_view, std::string_view> fields;
-			size_t pos = 0;
-			while (pos < fixMessage.size()) {
-				size_t eq = fixMessage.find('=', pos);
-				if (eq == std::string_view::npos) break;
-
-				size_t soh = fixMessage.find('\x01', eq);
-				if (soh == std::string_view::npos) break;
-
-				auto tag = fixMessage.substr(pos, eq - pos);
-				auto value = fixMessage.substr(eq + 1, soh - eq - 1);
-				fields[tag] = value;
-
-				pos = soh + 1;
-			}
-
-			std::string_view msgType = fields["35"];
-			if (msgType != "X" && msgType != "W") return;
-
-			std::string_view symbol = fields["55"];
-			int numEntries = std::stoi(std::string(fields["268"]));
-			size_t current = fixMessage.find("268=");
-
-			for (int i = 0; i < numEntries; ++i) {
-				size_t entryStart = fixMessage.find("269=", current);
-				if (entryStart == std::string_view::npos) break;
-
-				std::string_view side = fixMessage.substr(entryStart + 4, 1);
-
-				size_t pxPos = fixMessage.find("270=", entryStart);
-				size_t pxEnd = fixMessage.find('\x01', pxPos);
-				double price = std::stod(std::string(fixMessage.substr(pxPos + 4, pxEnd - pxPos - 4)));
-
-				size_t szPos = fixMessage.find("271=", entryStart);
-				size_t szEnd = fixMessage.find('\x01', szPos);
-				double size = std::stod(std::string(fixMessage.substr(szPos + 4, szEnd - szPos - 4)));
-
-				Quote quote(price, size, std::chrono::system_clock::now(), symbol, side == "0" ? QuoteSide::Bid : QuoteSide::Ask);
-
-				if (side == "0") {
-					if (!bidQuoteQueue_.push(quote)) std::cerr << "Bid queue full for host " << host_ << ":" << port_ << "\n";
-
-					if (!peakBidQuote_ || quote.getPrice() > peakBidQuote_->getPrice()) {
-						peakBidQuote_ = quote;
-					}
-
-					bidTimestamps_.push_back(quote.getTimestamp());
-					if (bidTimestamps_.size() > 100) {
-						bidTimestamps_.pop_front();
-					}
-
-				} else if (side == "1") {
-					if (!askQuoteQueue_.push(quote)) std::cerr << "Ask queue full for host " << host_ << ":" << port_ << "\n";
-
-					if (!peakAskQuote_ || quote.getPrice() < peakAskQuote_->getPrice()) {
-						peakAskQuote_ = quote;
-					}
-
-					askTimestamps_.push_back(quote.getTimestamp());
-					if (askTimestamps_.size() > 100) {
-						askTimestamps_.pop_front();
-					}
-				}
-
-				current = pxEnd;
-			}
-		} catch (const std::exception& e) {
-			std::cerr << "Exception thrown while parsing FIX message: " << e.what() << "\n";
-			std::cerr << "Message: " << fixMessage << "\n";
-		}
-
 	}
 
 	void QuotesObtainer::startReconnectLoop()
