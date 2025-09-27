@@ -15,7 +15,6 @@ option(HFT_ENABLE_TESTS "Build unit tests" OFF)
 # Add the executable with the actual source files
 add_executable(HFT
         main.cpp
-        GatewayIn/src/QuotesObtainer.cpp
 )
 
 
@@ -63,7 +62,6 @@ if (HFT_ENABLE_TESTS)
     set(MOCKS_DIR ${CMAKE_SOURCE_DIR}/tests/mocks)
     add_executable(test_gateway
             tests/gateway/test_quotes_obtainer.cpp
-            GatewayIn/src/QuotesObtainer.cpp
     )
     target_link_libraries(test_gateway PRIVATE
             GTest::gmock_main)
