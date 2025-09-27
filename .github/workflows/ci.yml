@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-and-test:
-    name: Build and run unit tests (CMake preset: test)
+    name: Build and run unit tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,7 +19,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ninja-build cmake libssl-dev libboost-all-dev
 
-      - name: Configure (CMake Preset: test)
+      - name: test
         run: cmake --preset test
 
       - name: Build run-tests target
