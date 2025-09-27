@@ -6,6 +6,10 @@
 
 #include "../../GatewayIn/include/QuotesObtainer.hpp"
 #include "../../GatewayIn/include/Quote.hpp"
+#include "websocket/MockBitVavoClient.hpp"
+#include "tcp/MockFixNetworkClient.hpp"
+
+namespace gateway { using MockPixClient = MockFixNetworkClient; }
 
 using namespace testing;
 using gateway::QuotesObtainer;

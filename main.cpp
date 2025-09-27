@@ -1,107 +1,93 @@
-#if 0
 #include <iostream>
+#include <thread>
+#include <vector>
+#include <utility>
+#include <iomanip>
+#include <chrono>
 #include "GatewayIn/include/QuotesObtainer.hpp"
 #include "GatewayIn/include/websocket/BitVavoNetworkClient.hpp"
-#include <iomanip>
-#include <thread>
-#include <memory>
+
+static void print_header() {
+	std::cout << "Time                 | Market   | Latest Bid            | Latest Ask            | Peak Bid             | Peak Ask             | Bids/s | Asks/s\n";
+	std::cout << "---------------------+----------+-----------------------+-----------------------+----------------------+----------------------+--------+-------\n";
+}
 
 int main() {
 	using namespace std::chrono;
-	std::cout << "Starting QuotesObtainer...\n";
+	std::cout << "Starting HFT app (demo) ...\n";
 
-	std::vector<std::pair<std::string, std::string>> servers = {
-		{"ws.bitvavo.com", "443"}
-	};
+	// Configure one Bitvavo endpoint for demo
+	const std::string host = "wss.bitvavo.com";
+	const std::string port = "443";
+	const std::string market = "BTC-EUR";
 
-	//TODO: this should be moved out of the main function and abstracted away
-	std::vector<std::pair<std::unique_ptr<gateway::QuotesObtainer>, std::string>> obtainers;
+	gateway::BitvavoWebSocketClient wsClient;
+	gateway::QuotesObtainer<gateway::BitvavoWebSocketClient> obt(wsClient, host, port, market);
 
-	for (const auto& [host, port] : servers) {
-		gateway::AnyFeed feed;
-		bool use_bitvavo = true;
-		if (use_bitvavo) feed.emplace<gateway::BitvavoWebSocketClient>();
-		else             feed.emplace<gateway::PixNetworkClient>();
-
-		//TODO: fix the last argument later
-		auto obtainer = std::make_unique<gateway::QuotesObtainer>(std::move(feed), host, port, "BTC");
-		if (!obtainer->connect()) {
-			std::cerr << "Failed to connect to " << host << ":" << port << "\n";
-			continue;
-		} else {
-			std::cout << "Successfully connected" << host << ":" << port << std::endl;
-		}
-
-		std::string label = host + ":" + port;
-		obtainers.emplace_back(std::move(obtainer), std::move(label));
+	if (!obt.connect()) {
+		std::cerr << "Failed to connect to " << host << ":" << port << "\n";
+		return 1;
 	}
 
-	std::vector<QuoteConsumer::QuoteSource> sources;
-	for (auto& [obtainerPtr, label] : obtainers) {
-		sources.push_back({ obtainerPtr.get(), label });
-	}
+	std::cout << "Connected. Press Ctrl+C to exit.\n";
+	print_header();
 
-	auto consumer = std::make_unique<QuoteConsumer>(std::move(sources));
-	std::cout << std::fixed << std::setprecision(5);
+	// Visualization loop
+	auto lastPrint = steady_clock::now();
+	std::size_t bidsThisInterval = 0;
+	std::size_t asksThisInterval = 0;
 
-	consumer->run();
+	gateway::Quote q{};
+	std::optional<gateway::Quote> latestBid;
+	std::optional<gateway::Quote> latestAsk;
 
-	// make ui class and add this there
-	while (true) {
-		std::cout << "\033[2J\033[H";  // Clear screen
-		std::cout << "=== Aggregated Level 2 Order Book ===\n\n";
+	for (;;) {
+		// Drain incoming quotes quickly
+		while (obt.getBidQueue().pop(q)) { latestBid = q; ++bidsThisInterval; }
+		while (obt.getAskQueue().pop(q)) { latestAsk = q; ++asksThisInterval; }
 
-		const auto& book = consumer->getOrderBook();
-		const auto& bids = book.getBids();
-		const auto& asks = book.getAsks();
+		// Print every second
+		auto now = steady_clock::now();
+		if (now - lastPrint >= 1s) {
+			// Compose timestamp
+			auto sysnow = system_clock::now();
+			auto t = system_clock::to_time_t(sysnow);
+			std::tm tm{};
 
-		std::cout << std::left << std::setw(15) << "Bid Size" << std::setw(15) << "Bid Price"
-				  << "||  "
-				  << std::setw(15) << "Ask Price" << std::setw(15) << "Ask Size" << "\n";
-		std::cout << std::string(64, '-') << "\n";
+			localtime_r(&t, &tm);
 
-		auto bidIt = bids.begin();
-		auto askIt = asks.begin();
-		for (int i = 0; i < 10; ++i) {
 			std::ostringstream line;
+			line << std::put_time(&tm, "%F %T") << " | "
+				 << std::setw(8) << market << " | ";
 
-			if (bidIt != bids.end()) {
-				line << std::setw(15) << bidIt->second.size
-					 << std::setw(15) << bidIt->first;
-				++bidIt;
-			} else {
-				line << std::setw(15) << "-" << std::setw(15) << "-";
-			}
+			auto fmt = [](const std::optional<gateway::Quote>& qq) {
+				std::ostringstream os; os.setf(std::ios::fixed); os << std::setprecision(2);
+				if (qq) os << std::setw(8) << qq->getPrice() << " x " << std::setw(7) << qq->getSize();
+				else    os << std::setw(8) << "-" << " x " << std::setw(7) << "-";
+				return os.str();
+			};
 
-			line << "||  ";
+			line << std::setw(23) << fmt(latestBid) << " | "
+				 << std::setw(23) << fmt(latestAsk) << " | ";
 
-			if (askIt != asks.end()) {
-				line << std::setw(15) << askIt->first
-					 << std::setw(15) << askIt->second.size;
-				++askIt;
-			} else {
-				line << std::setw(15) << "-" << std::setw(15) << "-";
-			}
+			line << std::setw(21);
+			if (obt.peakBidQuote_) line << std::fixed << std::setprecision(2) << obt.peakBidQuote_->getPrice(); else line << "-";
+			line << " | ";
+			line << std::setw(21);
+			if (obt.peakAskQuote_) line << std::fixed << std::setprecision(2) << obt.peakAskQuote_->getPrice(); else line << "-";
+			line << " | ";
 
-			std::cout << line.str() << "\n";
+			line << std::setw(6) << bidsThisInterval << " | "
+				 << std::setw(5) << asksThisInterval;
+
+			std::cout << line.str() << '\n';
+
+			bidsThisInterval = 0;
+			asksThisInterval = 0;
+			lastPrint = now;
 		}
 
-		// === Obtainer Stats ===
-		const auto& obtainerStats = consumer->fetchObtainerStats();
-		std::cout << "\n=== Quote Queue Stats ===\n\n";
-		std::cout << std::left << std::setw(25) << "Server"
-				  << std::setw(15) << "Bid Queue"
-				  << std::setw(15) << "Ask Queue" << "\n";
-		std::cout << std::string(55, '-') << "\n";
-
-		for (const auto& stat : obtainerStats) {
-			std::cout << std::setw(25) << stat.serverId
-					  << std::setw(15) << stat.bidQueueSize
-					  << std::setw(15) << stat.askQueueSize << "\n";
-		}
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+		std::this_thread::sleep_for(10ms);
 	}
 }
-#endif
 

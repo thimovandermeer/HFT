@@ -19,15 +19,10 @@
 #include "Quote.hpp"
 #include "../../Parser/include/BitvavoBookParser.hpp"
 #include "../../Parser/include/FixBookParser.hpp"
-// Provide mocks when building tests (include path provided by CMake)
-#include "websocket/MockBitVavoClient.hpp"
-#include "tcp/MockFixNetworkClient.hpp"
 #include <type_traits>
 
 namespace gateway {
 
-// Provide a test-friendly alias that matches test expectations
-using MockPixClient = MockFixNetworkClient;
 
 	template <typename Client>
 	class QuotesObtainer {
