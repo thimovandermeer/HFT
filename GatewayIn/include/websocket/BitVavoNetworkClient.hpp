@@ -1,4 +1,3 @@
-#pragma message("using REAL bitvavoWebSocketClient")
 #include "WebSocketClientBase.hpp"
 #include <iostream>
 #include <unordered_set>
@@ -42,23 +41,25 @@ namespace gateway
 		// ---- CRTP hooks ----
 		bool connect(std::string_view host, std::string_view port)
 		{
-			// Bitvavo needs target "/v2/" — pass that to connect().
-			// Optionally send pings later; Beast auto-handles pongs.
-			std::cout << "[Bitvavo] WS opened\n";
-			return true;
+			// Delegate to real Boost.Beast TLS+WebSocket connect in base.
+			return WebSocketClientBase<BitvavoWebSocketClient>::connect(host, port);
+		}
+
+		void onOpen()
+		{
+			std::cout << "[Bitvavo] WS opened" << std::endl;
 		}
 
 		void onMessage(std::string_view frame)
 		{
-			// Learning step 1: just print length / peek a few chars.
-			// Later: parse JSON, check event == "book", route.
+			// Forward to user-provided handler if set (production pipeline)
+			if (messageHandler_) {
+				messageHandler_(frame);
+				return;
+			}
+			// Fallback: minimal visibility for manual runs
 			if (frame.find("\"event\":\"book\"") != std::string_view::npos) {
-				// For now, show minimal proof this works:
 				std::cout << "[Bitvavo] book frame, bytes=" << frame.size() << "\n";
-				// TODO: parse bids/asks & nonce, then hand to your OrderBook
-			} else {
-				// You’ll also receive system messages (subscriptions, heartbeats, etc.)
-				// std::cout << "[Bitvavo] other: " << frame << "\n";
 			}
 		}
 
@@ -69,6 +70,14 @@ namespace gateway
 
 		void onError(std::string_view what)
 		{
+			if (what.find("Operation canceled") != std::string_view::npos ||
+				what.find("operation canceled") != std::string_view::npos) {
+				return;
+			}
+			if (errorHandler_) {
+				errorHandler_(what);
+				return;
+			}
 			std::cerr << "[Bitvavo] ERROR: " << what << "\n";
 		}
 

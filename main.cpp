@@ -16,8 +16,7 @@ int main() {
 	using namespace std::chrono;
 	std::cout << "Starting HFT app (demo) ...\n";
 
-	// Configure one Bitvavo endpoint for demo
-	const std::string host = "wss.bitvavo.com";
+	const std::string host = "ws.bitvavo.com";
 	const std::string port = "443";
 	const std::string market = "BTC-EUR";
 
