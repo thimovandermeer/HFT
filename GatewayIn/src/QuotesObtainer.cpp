@@ -1,5 +1,5 @@
+#if 0
 #include "../include/QuotesObtainer.hpp"
-#include "../include/TCP/PixNetworkClient.hpp"
 #include "../../Parser/include/BitvavoBookParser.hpp"
 #include "../../Parser/include/FixBookParser.hpp"
 #include <iostream>
@@ -7,7 +7,6 @@
 #include <thread>
 #include <atomic>
 #include <deque>
-#include <chrono>
 
 using std::chrono::system_clock;
 using std::chrono::time_point;
@@ -21,18 +20,22 @@ Overloaded(Ts...) -> Overloaded<Ts...>;
 
 namespace gateway
 {
+
 	QuotesObtainer::QuotesObtainer(
+			Client client,
 			AnyFeed feed,
 			std::string host,
 			std::string port,
 			std::string market
 			)
 			:
+			client_(std::move(client))
 			feed_(std::move(feed)),
 			host_(std::move(host)),
 			port_(std::move(port)),
 			market_(std::move(market))
 	{
+		
 		std::visit(Overloaded{
 				[this](PixNetworkClient& c) {
 					c.setMessageHandler([this](std::string_view msg){
@@ -185,3 +188,4 @@ namespace gateway
 		return askQuoteQueue_;
 	}
 }
+#endif

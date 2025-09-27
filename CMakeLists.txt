@@ -8,6 +8,8 @@ cmake_policy(SET CMP0167 NEW)
 
 # Find Boost components
 find_package(Boost REQUIRED COMPONENTS system thread filesystem)
+find_package(OpenSSL REQUIRED)
+
 option(HFT_ENABLE_TESTS "Build unit tests" OFF)
 
 # Add the executable with the actual source files
@@ -15,8 +17,6 @@ add_executable(HFT
         main.cpp
         GatewayIn/src/QuotesObtainer.cpp
 )
-
-find_package(OpenSSL REQUIRED)
 
 
 # Add include directories
@@ -47,22 +47,33 @@ if (HFT_ENABLE_TESTS)
     FetchContent_MakeAvailable(googletest)
 
     enable_testing()
+    include(GoogleTest)
 
     add_executable(test_parser
             tests/parser/test_bitvavo_parser.cpp
             tests/parser/test_fix_parser.cpp
     )
-    target_link_libraries(test_parser PRIVATE GTest::gtest_main)
-    target_include_directories(test_parser PRIVATE ${CMAKE_SOURCE_DIR}/parser/include ${CMAKE_SOURCE_DIR}/gateway/include)
+    target_link_libraries(test_parser PRIVATE GTest::gmock_main)
+    target_include_directories(test_parser PRIVATE
+            ${CMAKE_SOURCE_DIR}/parser/include
+            ${CMAKE_SOURCE_DIR}/gateway/include
+    )
+    gtest_discover_tests(test_parser)
 
+    set(MOCKS_DIR ${CMAKE_SOURCE_DIR}/tests/mocks)
     add_executable(test_gateway
             tests/gateway/test_quotes_obtainer.cpp
+            GatewayIn/src/QuotesObtainer.cpp
     )
-    target_link_libraries(test_gateway PRIVATE GTest::gtest_main)
-    target_include_directories(test_gateway PRIVATE ${CMAKE_SOURCE_DIR}/gateway/include ${CMAKE_SOURCE_DIR}/parser/include)
-
-    include(GoogleTest)
-    gtest_discover_tests(test_parser)
+    target_link_libraries(test_gateway PRIVATE
+            GTest::gmock_main)
+    target_include_directories(test_gateway PRIVATE
+            ${MOCKS_DIR}/GatewayIn/include
+            ${CMAKE_SOURCE_DIR}/GatewayIn/include
+            ${CMAKE_SOURCE_DIR}/GatewayIn/src
+            ${CMAKE_SOURCE_DIR}/Parser/include
+            ${Boost_INCLUDE_DIRS}
+    )
     gtest_discover_tests(test_gateway)
 
     add_custom_target(run-tests

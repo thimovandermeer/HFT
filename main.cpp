@@ -1,11 +1,10 @@
+#if 0
 #include <iostream>
 #include "GatewayIn/include/QuotesObtainer.hpp"
-#include "TCP/PixNetworkClient.hpp"
-#include "QuoteConsumer.hpp"
+#include "GatewayIn/include/websocket/BitVavoNetworkClient.hpp"
 #include <iomanip>
 #include <thread>
 #include <memory>
-#include "WEBSOCKET/BitVavoNetworkClient.hpp"
 
 int main() {
 	using namespace std::chrono;
@@ -14,7 +13,6 @@ int main() {
 	std::vector<std::pair<std::string, std::string>> servers = {
 		{"ws.bitvavo.com", "443"}
 	};
-
 
 	//TODO: this should be moved out of the main function and abstracted away
 	std::vector<std::pair<std::unique_ptr<gateway::QuotesObtainer>, std::string>> obtainers;
@@ -105,4 +103,5 @@ int main() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 }
+#endif
 

@@ -1,5 +1,4 @@
-// BitvavoWebSocketClient.hpp
-#pragma once
+#pragma message("using REAL bitvavoWebSocketClient")
 #include "WebSocketClientBase.hpp"
 #include <iostream>
 #include <unordered_set>
@@ -16,7 +15,7 @@ namespace gateway
 		BitvavoWebSocketClient(const BitvavoWebSocketClient&) = delete;
 		BitvavoWebSocketClient& operator=(const BitvavoWebSocketClient&) = delete;
 		BitvavoWebSocketClient(BitvavoWebSocketClient&& other) noexcept
-				: WebSocketClientBase<BitvavoWebSocketClient>(std::move(other)) // base move-ctor
+				: WebSocketClientBase<BitvavoWebSocketClient>(std::move(other))
 				, markets_(std::move(other.markets_))
 				, messageHandler_(std::move(other.messageHandler_))
 				, errorHandler_(std::move(other.errorHandler_))
