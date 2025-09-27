@@ -14,13 +14,14 @@ option(HFT_ENABLE_TESTS "Build unit tests" OFF)
 
 # Add the executable with the actual source files
 add_executable(HFT
-        main.cpp
+        apps/hft/main.cpp
 )
 
 
 # Add include directories
 target_include_directories(HFT PRIVATE
         ${Boost_INCLUDE_DIRS}
+        ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/GatewayIn/include
         ${CMAKE_CURRENT_SOURCE_DIR}/GatewayIn/src
 )
@@ -48,35 +49,26 @@ if (HFT_ENABLE_TESTS)
     enable_testing()
     include(GoogleTest)
 
-    add_executable(test_parser
+    set(MOCKS_DIR ${CMAKE_SOURCE_DIR}/tests/mocks)
+
+    add_executable(tests
             tests/parser/test_bitvavo_parser.cpp
             tests/parser/test_fix_parser.cpp
-    )
-    target_link_libraries(test_parser PRIVATE GTest::gmock_main)
-    target_include_directories(test_parser PRIVATE
-            ${CMAKE_SOURCE_DIR}/parser/include
-            ${CMAKE_SOURCE_DIR}/gateway/include
-    )
-    gtest_discover_tests(test_parser)
-
-    set(MOCKS_DIR ${CMAKE_SOURCE_DIR}/tests/mocks)
-    add_executable(test_gateway
             tests/gateway/test_quotes_obtainer.cpp
     )
-    target_link_libraries(test_gateway PRIVATE
-            GTest::gmock_main)
-    target_include_directories(test_gateway PRIVATE
+    target_link_libraries(tests PRIVATE GTest::gmock_main)
+    target_include_directories(tests PRIVATE
             ${MOCKS_DIR}/GatewayIn/include
             ${CMAKE_SOURCE_DIR}/GatewayIn/include
             ${CMAKE_SOURCE_DIR}/GatewayIn/src
             ${CMAKE_SOURCE_DIR}/Parser/include
             ${Boost_INCLUDE_DIRS}
     )
-    gtest_discover_tests(test_gateway)
+    gtest_discover_tests(tests)
 
     add_custom_target(run-tests
             COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-            DEPENDS test_parser test_gateway
+            DEPENDS tests
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
             COMMENT "Running all unit tests"
     )

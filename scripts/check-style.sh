@@ -7,7 +7,8 @@ paths=(
   "GatewayIn/src"
   "Parser/include"
   "Parser/src"
-  "main.cpp"
+  "Vizualizer"
+  "apps"
   "tests" # include tests too so contributions stay consistent
 )
 
