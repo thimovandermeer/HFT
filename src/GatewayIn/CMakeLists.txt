@@ -1,12 +1,11 @@
-add_library(GatewayIn STATIC
-        src/QuotesObtainer.cpp
+add_library(GatewayIn INTERFACE
 )
 
-target_include_directories(GatewayIn PUBLIC
+target_include_directories(GatewayIn INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(GatewayIn PUBLIC
+target_link_libraries(GatewayIn INTERFACE
         Boost::system
         Boost::thread
         Boost::filesystem

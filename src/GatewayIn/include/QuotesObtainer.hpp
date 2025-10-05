@@ -90,7 +90,6 @@ namespace gateway {
 		}
 		std::chrono::milliseconds updateInterval_{1000};
 
-		// Reconnect logic
 		void startReconnectLoop() {
 			if (reconnecting_.exchange(true)) return;
 			std::thread([this]() {
@@ -115,7 +114,6 @@ namespace gateway {
 			}).detach();
 		}
 
-		// Parsing hooks
 		void parseFix(std::string_view fixMessage) {
 			auto quote = fix::parseAndStoreQuote(fixMessage);
 			if (quote) storeQuote(*quote);
