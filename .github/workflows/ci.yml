@@ -19,10 +19,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ninja-build cmake libssl-dev libboost-all-dev
 
-      - name: test
-        run: cmake --preset test
+      - name: Configure main build
+        run: cmake --preset dev
 
-      - name: Build run-tests target
+      - name: Build main app
+        run: cmake --build build --target HFT
+
+      - name: Configure tests
+        working-directory: tests
+        run: cmake -S . -B ../build-test -G Ninja
+
+      - name: Build tests
         run: cmake --build build-test --target run-tests
 
       - name: Run tests
