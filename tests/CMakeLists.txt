@@ -1,7 +1,8 @@
-cmake_minimum_required(VERSION 3.15)
+# tests/CMakeLists.txt
+
+cmake_minimum_required(VERSION 3.20)
 
 include(FetchContent)
-
 FetchContent_Declare(
         googletest
         URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
@@ -14,7 +15,6 @@ enable_testing()
 include(GoogleTest)
 
 set(MOCKS_DIR ${CMAKE_SOURCE_DIR}/tests/mocks)
-set(SRC_DIR   ${CMAKE_SOURCE_DIR}/src)
 
 add_executable(HFT_tests
         parser/test_bitvavo_parser.cpp
@@ -23,6 +23,9 @@ add_executable(HFT_tests
 )
 
 target_link_libraries(HFT_tests PRIVATE
+        GatewayIn
+        Parser
+        Visualizer
         GTest::gmock_main
         Boost::system
         Boost::thread
@@ -31,16 +34,10 @@ target_link_libraries(HFT_tests PRIVATE
 
 target_include_directories(HFT_tests PRIVATE
         ${MOCKS_DIR}/GatewayIn/include
-        ${SRC_DIR}/GatewayIn/include
-        ${SRC_DIR}/GatewayIn/src
-        ${SRC_DIR}/Parser/include
-        ${SRC_DIR}/Visualizer/include
-        ${Boost_INCLUDE_DIRS}
+        ${CMAKE_SOURCE_DIR}/src
 )
 
-gtest_discover_tests(HFT_tests
-        DISCOVERY_MODE POST_BUILD
-)
+gtest_discover_tests(HFT_tests DISCOVERY_MODE POST_BUILD)
 
 add_custom_target(run-tests
         COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
@@ -48,4 +45,3 @@ add_custom_target(run-tests
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         COMMENT "Running all unit tests"
 )
-

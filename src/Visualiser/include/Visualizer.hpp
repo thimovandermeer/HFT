@@ -5,8 +5,8 @@
 #include <optional>
 #include <thread>
 #include <chrono>
-#include "src/GatewayIn/include/QuotesObtainer.hpp"
-#include "src/GatewayIn/include/websocket/BitVavoNetworkClient.hpp"
+#include "QuotesObtainer.hpp"
+#include "websocket/BitVavoNetworkClient.hpp"
 
 namespace demo {
 
