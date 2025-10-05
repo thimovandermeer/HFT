@@ -1,25 +1,30 @@
-Got it — here’s the **raw Markdown text** (no code block wrapper).
-You can now directly select, copy, and paste this straight into your `README.md` file in your editor.
+Absolutely — here are **two clean, ready-to-paste sections**:
+
+1️⃣ **`README.md`** (full version with the correct flow, new “Custom Data Structures” phase, and links to your TODO).
+2️⃣ **`TODO.md`** (a pure actionable checklist version for GitHub tracking).
 
 ---
 
+## ✅ `README.md`
+
+````markdown
 # ⚡ Building a High-Frequency Trading System — An Experimental Journey
 
-> This repository documents my exploration into building and optimizing a high-frequency trading (HFT) system from scratch — starting from a naive prototype and gradually evolving toward hardware-accelerated performance.
->
-> It’s not about writing the fastest code right away. It’s about *learning what actually makes code fast* — by measuring, profiling, and experimenting at every layer of the stack.
->
+> This repository documents my exploration into building and optimizing a high-frequency trading (HFT) system from scratch — starting from a naive prototype and gradually evolving toward hardware-accelerated performance.  
+>  
+> It’s not about writing the fastest code right away. It’s about *learning what actually makes code fast* — by measuring, profiling, and experimenting at every layer of the stack.  
+>  
 > I’ll be following data, not dogma — if the results point in a different direction than planned, I’ll go there.
 
 ---
 
 ## 🧭 Motivation
 
-The projects I’ve enjoyed most in my career were the ones where I had to **squeeze every last bit of performance out of the hardware** —
-whether it was making **payment terminals** process transactions as fast as physically possible,
+The projects I’ve enjoyed most in my career were the ones where I had to **squeeze every last bit of performance out of the hardware** —  
+whether it was making **payment terminals** process transactions as fast as physically possible,  
 or getting the **brain of a self-driving robot** to run on a tiny **Arduino** with barely any resources.
 
-That process — finding the limits of what hardware can do and bending them just a little further — is what I’ve always loved most.
+That process — finding the limits of what hardware can do and bending them just a little further — is what I’ve always loved most.  
 This project is an extension of that passion: taking the same mindset and applying it to the extreme performance world of HFT.
 
 ---
@@ -28,11 +33,11 @@ This project is an extension of that passion: taking the same mindset and applyi
 
 ```mermaid
 flowchart LR
-  FeedSource(Bitvavo / FIXSim / Other) --> |WebSocket / TCP| QuotesObtainer
-  QuotesObtainer --> OrderBook
-  OrderBook --> TradingLogic
-  TradingLogic --> |Buy/Sell| OrderSender
-```
+    FeedSource(Bitvavo / FIXSim / Other) --> |WebSocket / TCP| QuotesObtainer
+    QuotesObtainer --> OrderBook
+    OrderBook --> TradingLogic
+    TradingLogic --> |Buy/Sell| OrderSender
+````
 
 ---
 
@@ -68,111 +73,122 @@ flowchart LR
 
 ## 🧰 Phase 2 — Dedicated Hardware Setup (Ubuntu Environment)
 
-> “Before optimizing code, optimize your environment.”
+* Move to **dedicated Linux hardware** for reproducible, controllable performance testing.
+* Set up the machine, install dependencies, and prepare a stable profiling environment.
+* No tuning yet — focus on reproducibility and determinism.
 
-Move immediately to **dedicated Linux hardware** for reproducible, controllable performance testing.
+### Goals
 
-### 🖥️ Hardware Plan
-
-* Linux workstation (Ubuntu)
-
-    * Mellanox ConnectX-4/5 NIC
-    * Low-latency tuned kernel
-    * Fast NVMe + ample RAM
-* BIOS / OS tuning
-
-    * Disable C-states & hyper-threading
-    * Fix CPU frequency
-    * Configure IRQ affinity and `isolcpus`
-* Software setup
-
-    * `perf`, FlameGraph, Intel VTune
-    * DPDK / AF_XDP (for later phases)
-    * `taskset`, `numactl`, PTP for precise timestamps
-
-### 🧭 Journey
-
-* Researching and buying the hardware
-* Kernel and BIOS tuning logs
-* Baseline latency benchmarks on clean Ubuntu
-* Automation scripts for repeatable experiments
+* Stable environment for performance testing
+* Automated benchmarking setup
+* First reproducible latency measurements under Linux
 
 <details>
 <summary>🧾 Reflection (to be filled after completion)</summary>
 
-* What configuration changes gave measurable differences?
-* What setup challenges or unexpected bottlenecks appeared?
-* How reproducible are the results compared to macOS?
+* How reproducible are the results vs macOS?
+* What configuration challenges appeared?
+* Which parts of the setup most impacted stability?
 
 </details>
 
 ---
 
-## 🔍 Phase 3 — Profiling & First Optimizations
+## 🔍 Phase 3 — Software Optimization (Pre-Hardware Tuning)
 
-> “Let the profiler guide you, not your intuition.”
+* Optimize software performance **before** touching hardware parameters.
+* Focus on code-level and algorithmic improvements.
 
-### Tools
+### Tasks
 
-`perf record`, `perf stat`, FlameGraphs, Intel VTune
-
-### Experiments
-
-* Swap STL containers for cache-optimized ones (`boost::unordered_flat_map`, `tsl::robin_map`)
-* Reduce allocations (custom allocators / arena pools)
-* Introduce **lock-free SPSC queues** between producer / consumer threads
-* Optimize parsing pipeline (SIMD, pre-allocated buffers)
-* Measure cost of synchronization (`std::mutex` vs atomics)
+* Profile baseline with `perf` and FlameGraphs
+* Identify CPU hot paths
+* Replace STL containers with cache-friendly alternatives (`tsl::robin_map`, `boost::flat_map`)
+* Reduce dynamic allocations (custom allocators, arena pools)
+* Introduce lock-free SPSC queue for feed → order book
+* Simplify parsing logic
+* Optimize threading model
+* Compare latency before and after optimizations
 
 <details>
 <summary>🧾 Reflection (to be filled after completion)</summary>
 
-* Which profiler insights were most actionable?
-* Did any “obvious” optimizations have no measurable effect?
-* What patterns emerged across runs?
+* Which optimizations provided real gains?
+* Which looked promising but didn’t matter?
+* How predictable are the improvements?
 
 </details>
 
 ---
 
-## 🧵 Phase 4 — Core-Level and Memory Optimizations
+## 🧮 Phase 4 — Custom Data Structures & Memory Management
 
-> “How close can I get to the metal on general-purpose CPUs?”
+* Implement **bespoke components** to replace off-the-shelf libraries.
+* Focus on deep understanding and control over data movement.
 
-* Thread pinning with `taskset`
-* NUMA-aware allocation (`numactl`, hugepages)
-* Busy-wait vs epoll polling
-* Pre-faulted memory, page coloring
-* Cache-aligned structures / false-sharing elimination
-* Custom per-thread allocators
-* Branchless logic and `__builtin_expect` hints
+### Tasks
+
+* Implement custom lock-free queue
+* Implement simple allocator or memory arena
+* Implement fixed-capacity order book container
+* Explore cache-friendly layouts (SoA vs AoS)
+* Add micro-benchmarks for each structure
+* Measure latency impact vs Boost/TSL alternatives
 
 <details>
 <summary>🧾 Reflection (to be filled after completion)</summary>
 
-* Which micro-optimizations scaled best?
-* Did any introduce instability or regressions?
-* How much lower is the tail latency now?
+* How much improvement did custom data structures yield?
+* What trade-offs in complexity vs performance?
+* What lessons learned from lock-free and memory models?
 
 </details>
 
 ---
 
-## 🧱 Phase 5 — Hardware Acceleration (FPGA Exploration)
+## ⚙️ Phase 5 — Hardware-Level Tuning & Profiling
 
-> “When software hits the wall.”
+* Once the software path is fully optimized, begin hardware-level tuning.
 
-* Simple Verilog feed parser for UDP packets
-* DMA into host memory
-* Compare FPGA vs CPU latency
-* Hybrid setup: CPU order logic + FPGA feed handling
+### Tasks
+
+* Configure BIOS and kernel for performance
+* Set IRQ affinity and core isolation
+* Enable hugepages and NUMA pinning
+* Test thread pinning with `taskset`
+* Measure jitter and tail latency under load
+* Compare tuned vs untuned system metrics
 
 <details>
 <summary>🧾 Reflection (to be filled after completion)</summary>
 
-* What parts of the system map cleanly to hardware?
-* What trade-offs appear between determinism and flexibility?
-* How maintainable is the hardware pipeline?
+* Which tuning had the biggest impact?
+* How deterministic are results after pinning and isolation?
+* What unexpected interactions appeared between OS and code?
+
+</details>
+
+---
+
+## 🧱 Phase 6 — Hardware Acceleration (FPGA Exploration)
+
+* Explore offloading components to FPGA for deterministic ultra-low latency.
+* Implement minimal viable hardware modules and measure real-world performance.
+
+### Tasks
+
+* Set up FPGA toolchain (Quartus / Vivado)
+* Implement UDP packet parser in Verilog/VHDL
+* Integrate DMA with host process
+* Compare FPGA vs CPU performance
+* Document full software-hardware data path
+
+<details>
+<summary>🧾 Reflection (to be filled after completion)</summary>
+
+* Which components benefited most from hardware?
+* What are the complexity trade-offs?
+* How close is hardware performance to theoretical limits?
 
 </details>
 
@@ -180,13 +196,14 @@ Move immediately to **dedicated Linux hardware** for reproducible, controllable 
 
 ## 📈 Progress Tracking (to be updated)
 
-| Phase               | Avg Tick-to-Trade (µs) | 99th Percentile (µs) | Notes                       |
-| :------------------ | ---------------------: | -------------------: | :-------------------------- |
-| 1 – Naive           |                    TBD |                  TBD | macOS baseline              |
-| 2 – Ubuntu baseline |                    TBD |                  TBD | Clean kernel setup          |
-| 3 – Profiled        |                    TBD |                  TBD | First optimizations         |
-| 4 – Core tuned      |                    TBD |                  TBD | Thread pinning / allocators |
-| 5 – FPGA            |                    TBD |                  TBD | Hardware offload            |
+| Phase                      | Avg Tick-to-Trade (µs) | 99th Percentile (µs) | Notes                     |
+| :------------------------- | ---------------------: | -------------------: | :------------------------ |
+| 1 – Naive                  |                    TBD |                  TBD | macOS baseline            |
+| 2 – Ubuntu setup           |                    TBD |                  TBD | Stable Linux environment  |
+| 3 – Software optimized     |                    TBD |                  TBD | Algorithmic improvements  |
+| 4 – Custom data structures |                    TBD |                  TBD | Own lock-free / allocator |
+| 5 – Hardware tuned         |                    TBD |                  TBD | Core isolation, NUMA      |
+| 6 – FPGA                   |                    TBD |                  TBD | Hardware offload          |
 
 ---
 
@@ -207,17 +224,8 @@ Move immediately to **dedicated Linux hardware** for reproducible, controllable 
 * Learn to measure rather than guess
 * Build intuition for caches, NUMA, and scheduling
 * Explore kernel-bypass networking
+* Implement and reason about lock-free data structures
 * Gain hands-on experience with hardware acceleration
-
----
-
-## 🧩 Future Ideas (Data-Driven)
-
-* Multi-exchange aggregation
-* Adaptive batching strategies
-* Risk throttling subsystem
-* Microsecond-level timestamp correlation
-* Cross-machine latency measurement
 
 ---
 
@@ -227,3 +235,10 @@ Move immediately to **dedicated Linux hardware** for reproducible, controllable 
 
 This is an **open-ended experiment**, not a predefined tutorial.
 The direction may change at any point if the data shows something unexpected — and that’s the fun of it.
+
+---
+
+## 📋 TODO
+
+See [TODO.md](TODO.md) for the detailed checklist and current progress.
+
