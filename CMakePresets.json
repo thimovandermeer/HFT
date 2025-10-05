@@ -1,12 +1,16 @@
 {
   "version": 3,
-  "cmakeMinimumRequired": { "major": 3, "minor": 20 },
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20
+  },
+
   "configurePresets": [
     {
       "name": "dev",
-      "displayName": "Dev (no tests)",
+      "displayName": "Development build (no tests)",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
+      "binaryDir": "${sourceDir}/cmake-build-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "HFT_ENABLE_TESTS": "OFF"
@@ -14,24 +18,68 @@
     },
     {
       "name": "test",
-      "displayName": "Test (with gtests)",
+      "displayName": "Test build (with GoogleTest + mocks)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-test",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "HFT_ENABLE_TESTS": "ON"
       }
+    },
+    {
+      "name": "perf",
+      "displayName": "Performance profiling build (RelWithDebInfo)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/cmake-build-relwithdebinfo-linux-distro-for-perf",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "HFT_ENABLE_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "coverage",
+      "displayName": "Coverage build (Debug + gcov)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/cmake-build-debug-coverage",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HFT_ENABLE_TESTS": "ON",
+        "CMAKE_CXX_FLAGS": "--coverage",
+        "CMAKE_EXE_LINKER_FLAGS": "--coverage"
+      }
     }
   ],
+
   "buildPresets": [
-    { "name": "dev",  "configurePreset": "dev"  },
-    { "name": "test", "configurePreset": "test" }
-  ],
-  "testPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev"
+    },
     {
       "name": "test",
+      "configurePreset": "test"
+    },
+    {
+      "name": "perf",
+      "configurePreset": "perf"
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage"
+    }
+  ],
+
+  "testPresets": [
+    {
+      "name": "run-tests",
       "configurePreset": "test",
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": true
+      }
     }
   ]
 }
