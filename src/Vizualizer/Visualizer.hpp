@@ -5,8 +5,8 @@
 #include <optional>
 #include <thread>
 #include <chrono>
-#include "QuotesObtainer.hpp"
-#include "websocket/BitVavoNetworkClient.hpp"
+#include "src/GatewayIn/include/QuotesObtainer.hpp"
+#include "src/GatewayIn/include/websocket/BitVavoNetworkClient.hpp"
 
 namespace demo {
 
@@ -63,7 +63,6 @@ private:
                     std::size_t asksThisInterval) {
         using namespace std::chrono;
 
-        // Timestamp
         auto sysnow = system_clock::now();
         auto t = system_clock::to_time_t(sysnow);
         std::tm tm{};

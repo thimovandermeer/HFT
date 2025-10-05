@@ -1,11 +1,8 @@
 #include <iostream>
-#include <thread>
-#include <vector>
-#include <utility>
-#include <iomanip>
 #include <chrono>
-#include "GatewayIn/include/QuotesObtainer.hpp"
-#include "Vizualizer/Visualizer.hpp"
+#include "src/GatewayIn/include/QuotesObtainer.hpp"
+#include "src/GatewayIn/include/websocket/BitVavoNetworkClient.hpp"
+#include "src/Vizualizer/Visualizer.hpp"
 
 int main() {
 	using namespace std::chrono;

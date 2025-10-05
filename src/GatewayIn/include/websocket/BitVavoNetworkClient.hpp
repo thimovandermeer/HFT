@@ -1,3 +1,4 @@
+#pragma once
 #include "WebSocketClientBase.hpp"
 #include <iostream>
 #include <unordered_set>
