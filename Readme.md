@@ -28,11 +28,10 @@ This project is an extension of that passion: taking the same mindset and applyi
 
 ```mermaid
 flowchart LR
-    FeedSource(Bitvavo / FIXSim / Other) --> |WebSocket / TCP| QuotesObtainer
-    QuotesObtainer --> OrderBook
-    OrderBook --> QuoteConsumer
-    QuoteConsumer --> TradingLogic
-    TradingLogic --> |Buy/Sell| OrderSender
+  FeedSource(Bitvavo / FIXSim / Other) --> |WebSocket / TCP| QuotesObtainer
+  QuotesObtainer --> OrderBook
+  OrderBook --> TradingLogic
+  TradingLogic --> |Buy/Sell| OrderSender
 ```
 
 ---
