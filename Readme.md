@@ -7,7 +7,7 @@
 >  
 > It’s not about writing the fastest code right away. It’s about *learning what actually makes code fast* — by measuring, profiling, and experimenting at every layer of the stack.  
 >  
-> I’ll be following data, not dogma — if the results point in a different direction than planned, I’ll go there.
+> I’ll be following data, I'l try to optimize based on what the profilers say instead of what I think should be optimized. 
 
 ---
 
