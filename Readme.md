@@ -1,7 +1,6 @@
 
 ## ✅ `README.md`
 
-````markdown
 # ⚡ Building a High-Frequency Trading System — An Experimental Journey
 
 > This repository documents my exploration into building and optimizing a high-frequency trading (HFT) system from scratch — starting from a naive prototype and gradually evolving toward hardware-accelerated performance.  
