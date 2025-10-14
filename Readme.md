@@ -1,20 +1,13 @@
-Absolutely — here are **two clean, ready-to-paste sections**:
-
-1️⃣ **`README.md`** (full version with the correct flow, new “Custom Data Structures” phase, and links to your TODO).
-2️⃣ **`TODO.md`** (a pure actionable checklist version for GitHub tracking).
-
----
 
 ## ✅ `README.md`
 
-````markdown
 # ⚡ Building a High-Frequency Trading System — An Experimental Journey
 
 > This repository documents my exploration into building and optimizing a high-frequency trading (HFT) system from scratch — starting from a naive prototype and gradually evolving toward hardware-accelerated performance.  
 >  
 > It’s not about writing the fastest code right away. It’s about *learning what actually makes code fast* — by measuring, profiling, and experimenting at every layer of the stack.  
 >  
-> I’ll be following data, not dogma — if the results point in a different direction than planned, I’ll go there.
+> I’ll be following data, I'l try to optimize based on what the profilers say instead of what I think should be optimized. 
 
 ---
 
