@@ -23,7 +23,6 @@
 
 namespace gateway {
 
-
 	template <typename Client>
 	class QuotesObtainer {
 	public:
@@ -40,10 +39,8 @@ namespace gateway {
 			{
 				client_ = &client;
 				if constexpr (requires(Client* c, const std::string& s) { c->send(s); }) {
-					// Bitvavo-like client: parse websocket JSON frames
 					client_->setMessageHandler([this](std::string_view msg) { parseBitvavo(msg); });
 				} else {
-					// Pix-like client: parse FIX messages
 					client_->setMessageHandler([this](std::string_view msg) { parseFix(msg); });
 				}
 				client_->setErrorHandler([this](std::string_view err) {
@@ -58,7 +55,6 @@ namespace gateway {
 		bool connect() {
 			if (!client_->connect(host_, port_)) return false;
 			if constexpr (requires(Client* c, const std::string& s) { c->send(s); }) {
-				// For Bitvavo-like websocket, send manual subscribe
     std::string sub = std::string(R"({"action":"subscribe","channels":[{"name":"book","markets":[")")
 						  + market_ + R"("]}]})";
 				client_->send(sub);
@@ -70,11 +66,9 @@ namespace gateway {
 			client_->disconnect();
 		}
 
-		// Expose SPSC queues
 		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>>& getBidQueue() { return bidQuoteQueue_; }
 		boost::lockfree::spsc_queue<gateway::Quote, boost::lockfree::capacity<1024>>& getAskQueue() { return askQuoteQueue_; }
 
-		// Stats/peaks
 		std::deque<std::chrono::system_clock::time_point> askTimestamps_;
 		std::deque<std::chrono::system_clock::time_point> bidTimestamps_;
 		std::optional<Quote> peakAskQuote_;
@@ -121,7 +115,7 @@ namespace gateway {
 
 		void parseBitvavo(std::string_view bitVavoMessage) {
 			auto result = bitvavo::parseAndStoreQuote(bitVavoMessage, market_);
-			if (result) storeQuote(*result);
+			if (result) storeQuote(*result); else std::cerr << "Error parsing quote: " << bitVavoMessage << "\n";
 		}
 
 		void storeQuote(const Quote& quote) {
@@ -141,6 +135,12 @@ namespace gateway {
 				if (askTimestamps_.size() > 100) askTimestamps_.pop_front();
 			}
 		}
+
+		[[nodiscard]] const std::string& getMarket(){return market_;};
+		[[nodiscard]] const std::string& getHost(){return host_;};
+		[[nodiscard]] const std::string& getPort(){return port_;};
+		[[nodiscard]] bool bidQueueEmpty() {return bidQuoteQueue_.empty();}
+		size_t sizeBidQueue() const noexcept { return bidQuoteQueue_.read_available(); }
 
 	private:
 		Client* client_ {nullptr};

@@ -20,6 +20,7 @@ add_executable(HFT
 target_link_libraries(HFT PRIVATE
         GatewayIn
         Parser
+        OrderBook
         Visualizer
         Boost::system
         Boost::thread

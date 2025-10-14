@@ -1,10 +1,10 @@
 #pragma once
 #include <string_view>
-#include <vector>
 #include <string>
-#include <cstdlib>
+#include <optional>
 #include <chrono>
-#include "../../GatewayIn/include/Quote.hpp"
+#include <iostream>
+#include "Quote.hpp"
 
 namespace bitvavo {
 
@@ -13,74 +13,91 @@ namespace bitvavo {
 		if (p == std::string_view::npos) return 0;
 		p += 8;
 		uint64_t v = 0;
-		while (p < js.size() && js[p] >= '0' && js[p] <= '9') { v = v*10 + (js[p]-'0'); ++p; }
+		while (p < js.size() && js[p] >= '0' && js[p] <= '9') {
+			v = v * 10 + (js[p] - '0');
+			++p;
+		}
 		return v;
 	}
 
 	inline bool parseFirstLevel(std::string_view frame,
-								std::string_view key,
-								double& px,
-								double& qty)
+							std::string_view key,
+							double& px,
+							double& qty)
 	{
-		std::string pat = std::string("\"") + std::string(key) + "\":[[\"";
-		auto p = frame.find(pat);
-		if (p == std::string_view::npos) return false;
-		p += pat.size();
+		auto keyPos = frame.find(key);
+		if (keyPos == std::string_view::npos)
+			return false;
 
-		auto q = frame.find('"', p);
-		if (q == std::string_view::npos || q == p) return false; // empty price invalid
+		auto start = frame.find('[', keyPos);
+		if (start == std::string_view::npos)
+			return false;
 
-		std::string price_str(frame.substr(p, q - p));
+		auto nextChar = frame.find_first_not_of(" []", start + 1);
+		if (nextChar == std::string_view::npos || frame[nextChar] == ']')
+			return false;
+
+		auto end = frame.find(']', start);
+		if (end == std::string_view::npos)
+			return false;
+
+		std::string inner(frame.substr(start + 1, end - start - 1));
+
+		inner.erase(std::remove_if(inner.begin(), inner.end(), [](unsigned char c) {
+			return c == '"' || c == '[' || c == ']' || std::isspace(c);
+		}), inner.end());
+
+		if (inner.empty()) return false;
+
+		auto comma = inner.find(',');
+		if (comma == std::string::npos)
+			return false;
+
+		std::string priceStr = inner.substr(0, comma);
+		std::string qtyStr   = inner.substr(comma + 1);
+
 		char* endp = nullptr;
-		const char* cprice = price_str.c_str();
-		px = std::strtod(cprice, &endp);
-		if (endp != cprice + price_str.size()) {
+		px  = std::strtod(priceStr.c_str(), &endp);
+		if (endp == priceStr.c_str() || *endp != '\0')
 			return false;
-		}
 
-		auto q2a = frame.find('"', q + 2);
-		if (q2a == std::string_view::npos) return false;
-		auto q2b = frame.find('"', q2a + 1);
-		if (q2b == std::string_view::npos || q2b == q2a + 1) return false; // empty qty invalid
-
-		std::string qty_str(frame.substr(q2a + 1, q2b - q2a - 1));
 		endp = nullptr;
-		const char* cqty = qty_str.c_str();
-		qty = std::strtod(cqty, &endp);
-		if (endp != cqty + qty_str.size()) {
+		qty = std::strtod(qtyStr.c_str(), &endp);
+		if (endp == qtyStr.c_str() || *endp != '\0')
 			return false;
-		}
 
 		return true;
 	}
+
 
 	inline std::optional<gateway::Quote>
 	parseAndStoreQuote(std::string_view frame, std::string_view market)
 	{
 		try {
-			if (frame.find("\"event\":\"book\"") == std::string_view::npos) {
+			if (frame.find(R"("event":"book")") == std::string_view::npos)
 				return std::nullopt;
-			}
 
 			const auto now = std::chrono::system_clock::now();
-
 			double px = 0.0, qty = 0.0;
 
 			if (parseFirstLevel(frame, "bids", px, qty)) {
 				return gateway::Quote(px, qty, now, market, gateway::QuoteSide::Bid);
 			}
+
 			if (parseFirstLevel(frame, "asks", px, qty)) {
 				return gateway::Quote(px, qty, now, market, gateway::QuoteSide::Ask);
 			}
 
+			std::cerr << "[Bitvavo parser] No bid/ask found in frame: " << frame.substr(0, 200) << "\n";
+
 			return std::nullopt;
+
 		} catch (const std::exception& e) {
 			std::cerr << "Exception while parsing Bitvavo book frame: " << e.what() << "\n";
 			std::cerr << "Frame (truncated): "
-					  << std::string(frame.substr(0, std::min<size_t>(frame.size(), 256))) << "...\n";
+			          << std::string(frame.substr(0, std::min<size_t>(frame.size(), 256))) << "...\n";
 			return std::nullopt;
 		}
 	}
 
 } // namespace bitvavo
-

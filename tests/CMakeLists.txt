@@ -20,12 +20,14 @@ add_executable(HFT_tests
         parser/test_bitvavo_parser.cpp
         parser/test_fix_parser.cpp
         gateway/test_quotes_obtainer.cpp
+        orderbook/test_quote_consumer.cpp
 )
 
 target_link_libraries(HFT_tests PRIVATE
         GatewayIn
         Parser
         Visualizer
+        OrderBook
         GTest::gmock_main
         Boost::system
         Boost::thread
