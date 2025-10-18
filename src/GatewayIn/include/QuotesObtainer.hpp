@@ -6,20 +6,16 @@
 #include <deque>
 #include <utility>
 #include <chrono>
-#include <vector>
-#include <memory>
 #include <iostream>
 #include <thread>
 #include <atomic>
 #include <algorithm>
-#include <functional>
 #include <random>
 #include <boost/lockfree/spsc_queue.hpp>
 
 #include "Quote.hpp"
 #include "../../Parser/include/BitvavoBookParser.hpp"
 #include "../../Parser/include/FixBookParser.hpp"
-#include <type_traits>
 
 namespace gateway {
 
@@ -141,6 +137,7 @@ namespace gateway {
 		[[nodiscard]] const std::string& getPort(){return port_;};
 		[[nodiscard]] bool bidQueueEmpty() {return bidQuoteQueue_.empty();}
 		size_t sizeBidQueue() const noexcept { return bidQuoteQueue_.read_available(); }
+		size_t sizeAskQueue() const noexcept { return askQuoteQueue_.read_available(); }
 
 	private:
 		Client* client_ {nullptr};

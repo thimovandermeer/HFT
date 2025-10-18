@@ -1,6 +1,7 @@
 #include <iostream>
 #include <chrono>
 
+#include "QuoteConsumer.hpp"
 #include "QuotesObtainer.hpp"
 #include "websocket/BitVavoNetworkClient.hpp"
 #include "Visualizer.hpp"
@@ -16,13 +17,18 @@ int main() {
 	gateway::BitvavoWebSocketClient wsClient;
 	gateway::QuotesObtainer<gateway::BitvavoWebSocketClient> obt(wsClient, host, port, market);
 
-	if (!obt.connect()) {
-		std::cerr << "Failed to connect to " << host << ":" << port << "\n";
-		return 1;
-	}
+	std::cout << "Connecting to " << host << ":" << port << " ...\n";
+	QuoteConsumer consumer{obt, "BTC-EUR"};
+	std::cout << "Connected\n";
+	OrderBookView view;
+	consumer.attachView(&view);
+	std::cout << "Attached view\n";
+	consumer.setPublishLevels(80);
+	consumer.setPublishPeriod(milliseconds(20));
 
-	std::cout << "Connected. Press Ctrl+C to exit.\n";
+	consumer.start();
+	std::cout << "Started\n";
+	Visualizer viz{view, "BTC-EUR"};
+	viz.run();
 
-	demo::Visualizer vis(obt, market);
-	vis.run();
 }

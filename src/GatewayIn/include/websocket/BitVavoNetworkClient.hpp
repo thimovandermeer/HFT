@@ -39,10 +39,8 @@ namespace gateway
 			send(sub);
 		}
 
-		// ---- CRTP hooks ----
 		bool connect(std::string_view host, std::string_view port)
 		{
-			// Delegate to real Boost.Beast TLS+WebSocket connect in base.
 			return WebSocketClientBase<BitvavoWebSocketClient>::connect(host, port);
 		}
 
@@ -53,12 +51,10 @@ namespace gateway
 
 		void onMessage(std::string_view frame)
 		{
-			// Forward to user-provided handler if set (production pipeline)
 			if (messageHandler_) {
 				messageHandler_(frame);
 				return;
 			}
-			// Fallback: minimal visibility for manual runs
 			if (frame.find("\"event\":\"book\"") != std::string_view::npos) {
 				std::cout << "[Bitvavo] book frame, bytes=" << frame.size() << "\n";
 			}

@@ -1,89 +1,82 @@
 #pragma once
-#include <vector>
-#include <thread>
 #include <atomic>
+#include <thread>
 #include <chrono>
-#include <string_view>
-#include "QuotesObtainer.hpp"
+#include <limits>
 #include "OrderBook.hpp"
+#include "QuotesObtainer.hpp"
 
-
-struct ObtainerStats {
-	std::string_view serverId;
-	size_t askQueueSize;
-	size_t bidQueueSize;
-};
-
-template<typename... ObtainerTs>
+template<class GatewayT>
 class QuoteConsumer {
 public:
+    QuoteConsumer(gateway::QuotesObtainer<GatewayT>& obt, std::string symbol)
+        : obt_(obt), symbol_(std::move(symbol)), book_(symbol_) {}
 
-	explicit QuoteConsumer(std::tuple<ObtainerTs&...> feeds, std::string market):
-		orderBook_(std::move(market))
-	{
-		std::apply([this](auto&... feed) {
-			(this->sources_.push_back(this->makeSource(feed)), ...);
-		}, feeds);
-	}
+    void start() {
+        running_.store(true);
+        obt_.connect();
+        worker_ = std::thread(&QuoteConsumer::runLoop, this);
+    }
 
-	~QuoteConsumer(){stop();};
+    void stop() {
+        running_.store(false);
+        obt_.disconnect();
+        if (worker_.joinable()) worker_.join();
+    }
 
-	void start() {
-		if (running_.exchange(true)) return;
-		consumerThread_ = std::thread(&QuoteConsumer::run, this);
-	}
+    const OrderBook& orderBook() const { return book_; }
+    const std::string& symbol() const { return symbol_; }
 
-	void stop() {
-		if (!running_.exchange(false)) return;
-		if (consumerThread_.joinable())
-			consumerThread_.join();
-	}
-
-	std::vector<ObtainerStats> fetchObtainerStats() const;
-	const OrderBook& getOrderBook() const { return orderBook_; }
+    void attachView(OrderBookView* v) { view_ = v; }
+    void setPublishLevels(std::size_t n) { maxLevels_ = n; }
+    void setPublishPeriod(std::chrono::milliseconds p) { publishPeriod_ = p; }
 
 private:
-	void run() {
-		using namespace std::chrono_literals;
-		while (running_) {
-			for (auto& src : sources_) {
-				src.process();
-			}
-			std::this_thread::sleep_for(100us);
-		}
-	}
+    void runLoop() {
+        using namespace std::chrono;
+        auto nextPublish = steady_clock::now();
+        std::size_t sinceLastPublish = 0;
 
-	template<typename Queue>
-	void processQueue(Queue& queue) {
-		gateway::Quote q;
-		while (queue.pop(q)) {
-			orderBook_.update(q);
-		}
-	}
+        double lastBestBid = std::numeric_limits<double>::quiet_NaN();
+        double lastBestAsk = std::numeric_limits<double>::quiet_NaN();
 
+        gateway::Quote q{};
+        while (running_.load(std::memory_order_relaxed)) {
+            bool didWork = false;
 
-	struct SourceAdapter {
-		std::function<void()> process;
-		std::string_view id;
-		std::string_view market;
-	};
+            while (obt_.getBidQueue().pop(q)) { book_.update(q); didWork = true; ++sinceLastPublish; }
+            while (obt_.getAskQueue().pop(q)) { book_.update(q); didWork = true; ++sinceLastPublish; }
 
-	template<typename T>
-	SourceAdapter makeSource(T& feed)
-	{
-		return SourceAdapter{
-			[&feed, this]() {
-				processQueue(feed.getAskQueue());
-				processQueue(feed.getBidQueue());
-			},
-			feed.getHost(),
-			feed.getMarket()
-		};
-	}
+            const auto now = steady_clock::now();
+            const double bb = book_.bestBid();
+            const double ba = book_.bestAsk();
+            const bool tobChanged =
+                (!std::isnan(bb) && bb != lastBestBid) ||
+                (!std::isnan(ba) && ba != lastBestAsk);
 
-	std::vector<SourceAdapter> sources_;
-	mutable std::thread consumerThread_;
-	std::atomic<bool> running_{false};
+            const bool timeToPublish = now >= nextPublish;
+            const bool haveNewData   = sinceLastPublish > 0;
 
-	OrderBook orderBook_;
+            if (view_ && ((timeToPublish && haveNewData) || tobChanged)) {
+                view_->publish_from(book_, maxLevels_);
+                sinceLastPublish = 0;
+                nextPublish = now + publishPeriod_;
+                lastBestBid = bb; lastBestAsk = ba;
+            }
+
+            if (!didWork) std::this_thread::sleep_for(100us);
+        }
+    }
+
+private:
+    gateway::QuotesObtainer<GatewayT>& obt_;
+    std::string symbol_;
+    OrderBook book_;
+
+    std::atomic<bool> running_{false};
+    std::thread worker_;
+
+    OrderBookView* view_{nullptr};
+    std::size_t maxLevels_{80};
+    std::chrono::milliseconds publishPeriod_{20};
 };

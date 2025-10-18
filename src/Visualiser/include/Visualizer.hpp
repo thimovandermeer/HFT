@@ -2,99 +2,60 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
-#include <optional>
 #include <thread>
 #include <chrono>
-#include "QuotesObtainer.hpp"
-#include "websocket/BitVavoNetworkClient.hpp"
 
-namespace demo {
 
 class Visualizer {
 public:
-    Visualizer(gateway::QuotesObtainer<gateway::BitvavoWebSocketClient>& obt,
-               std::string market)
-        : obt_(obt), market_(std::move(market)) {}
+    explicit Visualizer(const OrderBookView& view, std::string market)
+        : view_(view), market_(std::move(market)) {}
 
     void run() {
         using namespace std::chrono;
-
         print_header();
-
         auto lastPrint = steady_clock::now();
-        std::size_t bidsThisInterval = 0;
-        std::size_t asksThisInterval = 0;
-
-        gateway::Quote q{};
-        std::optional<gateway::Quote> latestBid;
-        std::optional<gateway::Quote> latestAsk;
 
         for (;;) {
-            // Drain queues
-            while (obt_.getBidQueue().pop(q)) { latestBid = q; ++bidsThisInterval; }
-            while (obt_.getAskQueue().pop(q)) { latestAsk = q; ++asksThisInterval; }
-
-            // Print once per second
             auto now = steady_clock::now();
             if (now - lastPrint >= 1s) {
-                print_line(latestBid, latestAsk, bidsThisInterval, asksThisInterval);
-                bidsThisInterval = asksThisInterval = 0;
+                auto snap = view_.read();
+                print_line(snap);
                 lastPrint = now;
             }
-
-            std::this_thread::sleep_for(10ms);
+            std::this_thread::sleep_for(5ms);
         }
     }
 
 private:
-    gateway::QuotesObtainer<gateway::BitvavoWebSocketClient>& obt_;
+    const OrderBookView& view_;
     std::string market_;
 
     static void print_header() {
-        std::cout << "Time                 | Market   | Latest Bid            | Latest Ask            "
-                     "| Peak Bid             | Peak Ask             | Bids/s | Asks/s\n";
-        std::cout << "---------------------+----------+-----------------------+-----------------------"
-                     "+----------------------+----------------------+--------+-------\n";
+        std::cout << "Time                 | Market   | Latest Bid            | Latest Ask\n";
+        std::cout << "---------------------+----------+-----------------------+-----------------------\n";
     }
-
-    void print_line(const std::optional<gateway::Quote>& latestBid,
-                    const std::optional<gateway::Quote>& latestAsk,
-                    std::size_t bidsThisInterval,
-                    std::size_t asksThisInterval) {
+    static void print_line(const OrderBookSnapshot& s) {
         using namespace std::chrono;
+        auto t = system_clock::to_time_t(system_clock::now());
+        std::tm tm{}; localtime_r(&t, &tm);
 
-        auto sysnow = system_clock::now();
-        auto t = system_clock::to_time_t(sysnow);
-        std::tm tm{};
-        localtime_r(&t, &tm);
-
-        std::ostringstream line;
-        line << std::put_time(&tm, "%F %T") << " | "
-             << std::setw(8) << market_ << " | ";
-
-        auto fmt = [](const std::optional<gateway::Quote>& qq) {
-            std::ostringstream os; os.setf(std::ios::fixed); os << std::setprecision(2);
-            if (qq) os << std::setw(8) << qq->getPrice() << " x " << std::setw(7) << qq->getSize();
-            else    os << std::setw(8) << "-" << " x " << std::setw(7) << "-";
+        auto fmt = [](double px, std::optional<double> sz)->std::string{
+            std::ostringstream os; os.setf(std::ios::fixed); os<<std::setprecision(2);
+            if (std::isnan(px)) return std::string(8,'-') + " x " + std::string(7,'-');
+            os<<std::setw(8)<<px<<" x "<<std::setw(7)<<(sz?*sz:0.0);
             return os.str();
         };
 
-        line << std::setw(23) << fmt(latestBid) << " | "
-             << std::setw(23) << fmt(latestAsk) << " | ";
+        std::optional<double> bbSize, baSize;
+        if (!s.bidLevels.empty() && !std::isnan(s.bestBid) && s.bidLevels.front().first == s.bestBid) bbSize = s.bidLevels.front().second;
+        if (!s.askLevels.empty() && !std::isnan(s.bestAsk) && s.askLevels.front().first == s.bestAsk) baSize = s.askLevels.front().second;
 
-        line << std::setw(21);
-        if (obt_.peakBidQuote_) line << std::fixed << std::setprecision(2) << obt_.peakBidQuote_->getPrice(); else line << "-";
-        line << " | ";
-
-        line << std::setw(21);
-        if (obt_.peakAskQuote_) line << std::fixed << std::setprecision(2) << obt_.peakAskQuote_->getPrice(); else line << "-";
-        line << " | ";
-
-        line << std::setw(6) << bidsThisInterval << " | "
-             << std::setw(5) << asksThisInterval;
-
+        std::ostringstream line;
+        line << std::put_time(&tm, "%F %T") << " | "
+             << std::setw(8) << s.symbol << " | "
+             << std::setw(23) << fmt(s.bestBid, bbSize) << " | "
+             << std::setw(23) << fmt(s.bestAsk, baSize);
         std::cout << line.str() << '\n';
     }
 };
-
-} // namespace demo

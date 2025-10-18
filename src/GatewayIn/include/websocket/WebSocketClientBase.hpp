@@ -29,7 +29,7 @@ public:
 	WebSocketClientBase& operator=(const WebSocketClientBase&) = delete;
 
 	WebSocketClientBase(WebSocketClientBase&& other) noexcept
-			: ioc_(), // vers io_context
+			: ioc_(),
 			  ssl_ctx_(boost::asio::ssl::context::tls_client),
 			  ws_(ioc_, ssl_ctx_),
 			  running_(false),
@@ -47,16 +47,11 @@ public:
 			try { other.receive_thread_.join(); } catch (...) {}
 		}
 
-		// Nieuw ssl-ctx config voor dit object
 		try {
 			ssl_ctx_.set_default_verify_paths();
 			ssl_ctx_.set_verify_mode(boost::asio::ssl::verify_peer);
 		} catch (...) {
-			// geen throw in noexcept; laat leeg
 		}
-
-		// Het nieuwe object is "schoon": geen actieve connectie, geen thread
-		// running_ blijft false; connect() moet opnieuw worden aangeroepen
 	}
 	WebSocketClientBase& operator=(WebSocketClientBase&&) = delete;
 
@@ -73,22 +68,18 @@ public:
 			auto endpoints = resolver.resolve(host_, std::string(port));
 			boost::asio::connect(ws_.next_layer().next_layer(), endpoints);
 
-			// 2) TLS (SNI)
 			if(!SSL_set_tlsext_host_name(ws_.next_layer().native_handle(), host_.c_str())) {
 				std::cerr << "TLS ERROR" << std::endl;
 				static_cast<Derived*>(this)->onError("SSL_set_tlsext_host_name failed");
 			}
 			ws_.next_layer().handshake(boost::asio::ssl::stream_base::client);
 
-			// 3) WebSocket handshake
 			ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(boost::beast::role_type::client));
 			ws_.handshake(host_, target_);
 
 			running_.store(true);
-			// Notify derived
 			derived().onOpen();
 
-			// Start IO/receive thread (blocking reads)
 			receive_thread_ = std::thread([this] { this->receiveLoop(); });
 			return true;
 		} catch (const std::exception& e) {
@@ -134,7 +125,6 @@ protected:
 	Derived& derived() { return static_cast<Derived&>(*this); }
 
 protected:
-	// Expose if a Derived wants to access IO or ws directly (advanced)
 	boost::asio::io_context ioc_;
 	boost::asio::ssl::context ssl_ctx_;
 	boost::beast::websocket::stream<boost::beast::ssl_stream<boost::asio::ip::tcp::socket>> ws_;
