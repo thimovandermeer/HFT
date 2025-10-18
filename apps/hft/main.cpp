@@ -27,8 +27,9 @@ int main() {
 	consumer.setPublishPeriod(milliseconds(20));
 
 	consumer.start();
-	std::cout << "Started\n";
-	Visualizer viz{view, "BTC-EUR"};
-	viz.run();
+	VisualizerImGui visualizer(view);
+	std::cout << "Vizualizer class created\n";
+	visualizer.run();
+	std::cout << "GUI thread running\n";
 
 }
