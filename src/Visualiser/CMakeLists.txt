@@ -1,4 +1,20 @@
 cmake_minimum_required(VERSION 3.20)
+include(FetchContent)
+
+
+FetchContent_Declare(
+        implot
+        GIT_REPOSITORY https://github.com/epezent/implot.git
+        GIT_TAG        v0.16
+)
+FetchContent_MakeAvailable(implot)
+
+add_library(implot STATIC
+        ${implot_SOURCE_DIR}/implot.cpp
+        ${implot_SOURCE_DIR}/implot_items.cpp
+)
+target_include_directories(implot PUBLIC ${implot_SOURCE_DIR})
+target_link_libraries(implot PUBLIC imgui)
 
 add_library(VisualizerImGui STATIC
         src/VisualizerImGui.cpp
@@ -15,7 +31,6 @@ target_include_directories(Visualizer INTERFACE
 )
 target_link_libraries(Visualizer INTERFACE VisualizerImGui)
 
-include(FetchContent)
 
 FetchContent_Declare(
         glfw
@@ -52,7 +67,7 @@ if(NOT imgui_POPULATED)
     target_link_libraries(imgui PUBLIC glfw)
 endif()
 
-target_link_libraries(VisualizerImGui PRIVATE imgui OrderBook)
+target_link_libraries(VisualizerImGui PRIVATE implot imgui OrderBook)
 
 if(APPLE)
     target_link_libraries(VisualizerImGui PRIVATE "-framework OpenGL")
